@@ -122,7 +122,7 @@ async def cb_set_role(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 # ------------------------------------------------- ПРОФИЛЬ (Mini App)
 # НОВЫЙ КОД / ИСПРАВЛЕНИЕ: Заглушка URL. ЗАМЕНИТЕ НА ВАШ РЕАЛЬНЫЙ АДРЕС!
-YOUR_APP_URL = "https://your-mini-app-domain.com/profile_app.html"
+YOUR_APP_URL = "https://damirbekdadadzhanov70.github.io/AI_TaekwondoBot/profile_app.html"
 
 
 async def handle_profile_data(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

@@ -126,6 +126,11 @@ async def cb_set_role(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 YOUR_APP_URL = "https://damirbekdadadzhanov70.github.io/AI_TaekwondoBot/profile_app.html"
 
 
+# main.py, строка ~150
+# ...
+# ------------------------------------------------- ПРОФИЛЬ (Mini App)
+# ...
+
 async def handle_profile_data(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Принимает JSON-данные о профиле, отправленные из Mini App."""
     if not update.message.web_app_data:
@@ -133,6 +138,9 @@ async def handle_profile_data(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     data = update.message.web_app_data.data
     uid = update.effective_user.id
+
+    # 💡 НОВЫЙ КОД ДЛЯ ДЕБАГА
+    logger.info(f"Получены данные Mini App от {uid}: {data}")
 
     try:
         profile_data = json.loads(data)
@@ -142,10 +150,17 @@ async def handle_profile_data(update: Update, context: ContextTypes.DEFAULT_TYPE
         height = int(profile_data.get("height", 0))
         weight = float(profile_data.get("weight", 0))
 
+        # 💡 НОВЫЙ КОД ДЛЯ ДЕБАГА
+        logger.info(f"Parsed data: age={age}, height={height}, weight={weight}")
+
         if age >= 4 and height >= 80 and weight >= 15:
-            # ИСПРАВЛЕНИЕ: Убедитесь, что здесь нет ошибки переменной (weight=w)
+            # Вызываем функцию из database.py
             saved = update_profile(uid, age=age, height=height, weight=weight)
-            await update.message.reply_text(  # <--- ЭТО СООБЩЕНИЕ ЗАКРОЕТ MINI APP
+
+            # 💡 НОВЫЙ КОД ДЛЯ ДЕБАГА
+            logger.info(f"Профиль {uid} успешно обновлен. Отправка ответа.")
+
+            await update.message.reply_text(
                 "✅ *Профиль спортсмена обновлен через Mini App*.\n"
                 f"Возраст: {saved['age']} | Рост: {saved['height']} см | Вес: {saved['weight']} кг",
                 parse_mode="Markdown"
@@ -154,16 +169,9 @@ async def handle_profile_data(update: Update, context: ContextTypes.DEFAULT_TYPE
             await update.message.reply_text("❌ Ошибка валидации данных. Проверьте введенные значения.")
 
     except Exception as e:
-        # УЛУЧШЕНИЕ: Вывод полного traceback в лог и отправка сообщения об ошибке
-        error_info = traceback.format_exc()
-        logger.error(f"Критическая ошибка Mini App! Трассировка:\n{error_info}")
-
-        # Отправляем ответ, чтобы Mini App закрылось, даже если произошла ошибка
-        await update.message.reply_text(
-            f"❌ Критическая ошибка на сервере. См. логи. (Тип: {type(e).__name__})",
-            reply_markup=ReplyKeyboardRemove()
-        )
-        return
+        # 💡 Улучшенное логирование с traceback
+        logger.error(f"Критическая ошибка при обработке данных Mini App для {uid}: {e}", exc_info=True)
+        await update.message.reply_text(f"❌ Произошла ошибка при обработке данных Mini App: {e}")
 
 
 # НОВЫЙ КОД / ИСПРАВЛЕНИЕ: Запускает Mini App вместо диалога

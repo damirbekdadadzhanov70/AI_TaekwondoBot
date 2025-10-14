@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Настройка профиля Taekwondo AI</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <style>
+        /* Базовые стили для нативности */
+        body {
+            /* Используем переменные Telegram для автоматической поддержки тем */
+            background-color: var(--tg-theme-bg-color, #fff);
+            color: var(--tg-theme-text-color, #000);
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            padding: 20px;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            /* Убеждаемся, что контент занимает всю высоту для корректного размещения кнопки */
+            min-height: 100vh;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        label {
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: var(--tg-theme-hint-color, #aaa);
+            font-size: 14px;
+        }
+        input[type="number"] {
+            padding: 10px;
+            border: 1px solid var(--tg-theme-secondary-bg-color, #eee);
+            background-color: var(--tg-theme-secondary-bg-color, #eee);
+            color: var(--tg-theme-text-color, #000);
+            border-radius: 8px;
+            transition: border-color 0.2s;
+            -webkit-appearance: none;
+            -moz-appearance: textfield;
+            font-size: 16px;
+        }
+        /* Стили для Main Button Telegram */
+        #main-button-container {
+            flex-grow: 1;
+            display: flex;
+            align-items: flex-end; /* Прижимает кнопку к низу */
+            padding-bottom: 20px; /* Отступ от края */
+        }
+    </style>
+</head>
+<body>
+    <h1>🥋 Профиль спортсмена</h1>
+    <p>Введите свои актуальные данные. Мы используем их для персонализации планов.</p>
+
+    <div class="form-group">
+        <label for="age">Возраст (лет)</label>
+        <input type="number" id="age" min="4" max="100" placeholder="Например, 25">
+    </div>
+
+    <div class="form-group">
+        <label for="height">Рост (см)</label>
+        <input type="number" id="height" min="80" max="230" placeholder="Например, 175">
+    </div>
+
+    <div class="form-group">
+        <label for="weight">Вес (кг)</label>
+        <input type="number" id="weight" step="0.1" min="15" max="250" placeholder="Например, 68.5">
+    </div>
+
+    <div id="main-button-container">
+        </div>
+
+
+    <script>
+        // Инициализация Mini App
+        Telegram.WebApp.ready();
+
+        const mainButton = Telegram.WebApp.MainButton;
+
+        function validateAndSend() {
+            const age = document.getElementById('age').value.trim();
+            const height = document.getElementById('height').value.trim();
+            const weight = document.getElementById('weight').value.trim();
+
+            if (!age || !height || !weight) {
+                // Показываем нативное предупреждение Telegram
+                Telegram.WebApp.showAlert('Пожалуйста, заполните все поля!');
+                return;
+            }
+
+            // Форматируем вес, чтобы гарантировать точку как разделитель
+            const data = {
+                age: parseInt(age),
+                height: parseInt(height),
+                // Заменяем запятую на точку, если пользователь ввел дробное число
+                weight: parseFloat(weight.replace(',', '.'))
+            };
+
+            if (data.age < 4 || data.height < 80 || data.weight < 15) {
+                Telegram.WebApp.showAlert('Введены некорректные значения!');
+                return;
+            }
+
+            // Отправляем данные боту в виде JSON-строки
+            mainButton.showProgress(true); // Показываем загрузку
+            Telegram.WebApp.sendData(JSON.stringify(data));
+        }
+
+        // Настройка главной кнопки Telegram
+        mainButton.setText("СОХРАНИТЬ ПРОФИЛЬ");
+        mainButton.onClick(validateAndSend);
+        mainButton.show();
+    </script>
+</body>
+</html>

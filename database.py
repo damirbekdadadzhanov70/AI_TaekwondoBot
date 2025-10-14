@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Dict, Any
+import logging # НОВОЕ: для отладки
 
 # ------------ файл для хранения профилей ------------
 DB_FILE = Path("profiles.json")
@@ -44,15 +45,17 @@ def load_profiles() -> None:
 def save_profiles() -> None:
     """Сохраняем профили на диск после изменений."""
     try:
+        # НОВОЕ: Гарантируем, что все None заменены на None, которые JSON может обработать (не применимо, но для чистоты)
         data_to_save = json.dumps(USER_PROFILES, ensure_ascii=False, indent=2)
         DB_FILE.write_text(
             data_to_save,
             encoding="utf-8"
         )
-    except Exception as e: # <-- Теперь мы увидим ошибку
-        # Используем встроенное логирование Python, чтобы увидеть ошибку в консоли
-        import logging
+    except Exception as e:
+        # ИСПРАВЛЕНИЕ: Выводим ошибку в консоль, если сохранение не удалось
         logging.getLogger("AI_TaekwondoBot").error(f"Ошибка сохранения профилей: {e}")
+        # НЕ ГЛОТАЙТЕ ОШИБКИ, ЕСЛИ ЭТО КРИТИЧЕСКИ ВАЖНАЯ ОПЕРАЦИЯ!
+        raise
 
 
 # ------------ API профилей ------------

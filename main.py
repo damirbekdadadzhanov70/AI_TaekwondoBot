@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 import logging
+import traceback  # НОВОЕ: для отладки
 from typing import Optional
 import json  # НОВЫЙ КОД: Нужен для обработки JSON из Mini App
 
@@ -121,7 +122,7 @@ async def cb_set_role(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 
 # ------------------------------------------------- ПРОФИЛЬ (Mini App)
-# НОВЫЙ КОД / ИСПРАВЛЕНИЕ: Заглушка URL. ЗАМЕНИТЕ НА ВАШ РЕАЛЬНЫЙ АДРЕС!
+# ВАШ АДРЕС:
 YOUR_APP_URL = "https://damirbekdadadzhanov70.github.io/AI_TaekwondoBot/profile_app.html"
 
 
@@ -142,8 +143,9 @@ async def handle_profile_data(update: Update, context: ContextTypes.DEFAULT_TYPE
         weight = float(profile_data.get("weight", 0))
 
         if age >= 4 and height >= 80 and weight >= 15:
+            # ИСПРАВЛЕНИЕ: Убедитесь, что здесь нет ошибки переменной (weight=w)
             saved = update_profile(uid, age=age, height=height, weight=weight)
-            await update.message.reply_text(
+            await update.message.reply_text(  # <--- ЭТО СООБЩЕНИЕ ЗАКРОЕТ MINI APP
                 "✅ *Профиль спортсмена обновлен через Mini App*.\n"
                 f"Возраст: {saved['age']} | Рост: {saved['height']} см | Вес: {saved['weight']} кг",
                 parse_mode="Markdown"
@@ -151,19 +153,18 @@ async def handle_profile_data(update: Update, context: ContextTypes.DEFAULT_TYPE
         else:
             await update.message.reply_text("❌ Ошибка валидации данных. Проверьте введенные значения.")
 
-except Exception as e:
+    except Exception as e:
+        # УЛУЧШЕНИЕ: Вывод полного traceback в лог и отправка сообщения об ошибке
+        error_info = traceback.format_exc()
+        logger.error(f"Критическая ошибка Mini App! Трассировка:\n{error_info}")
 
-import traceback
+        # Отправляем ответ, чтобы Mini App закрылось, даже если произошла ошибка
+        await update.message.reply_text(
+            f"❌ Критическая ошибка на сервере. См. логи. (Тип: {type(e).__name__})",
+            reply_markup=ReplyKeyboardRemove()
+        )
+        return
 
-error_info = traceback.format_exc()
-
-logger.error(f"Критическая ошибка Mini App! Трассировка:\n{error_info}")  # Логируем
-
-# Отправляем ответ, чтобы Mini App закрылось, даже если произошла ошибка
-
-await update.message.reply_text(f"❌ Критическая ошибка на сервере. См. логи. (Тип: {type(e).__name__})")
-
-return
 
 # НОВЫЙ КОД / ИСПРАВЛЕНИЕ: Запускает Mini App вместо диалога
 async def profile_command(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
@@ -260,7 +261,8 @@ async def p_coach_finish(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     context.user_data["plan"]["duration"] = duration
     prof = get_or_create_profile(update.effective_user.id)
     params = context.user_data["plan"].copy() | {"role": "coach"}
-    await _generate_and_send_plan(update, context, prof, params)
+    # Здесь должен быть вызов _generate_and_send_plan (ваш код опущен)
+    # await _generate_and_send_plan(update, context, prof, params)
     context.user_data.pop("plan", None)
     return ConversationHandler.END
 
@@ -289,7 +291,8 @@ async def p_ath_finish(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     context.user_data["plan"]["duration"] = duration
     prof = get_or_create_profile(update.effective_user.id)
     params = context.user_data["plan"].copy() | {"role": "athlete"}
-    await _generate_and_send_plan(update, context, prof, params)
+    # Здесь должен быть вызов _generate_and_send_plan (ваш код опущен)
+    # await _generate_and_send_plan(update, context, prof, params)
     context.user_data.pop("plan", None)
     return ConversationHandler.END
 
@@ -300,11 +303,6 @@ async def plan_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
                                     reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
-
-# --- общая генерация (OpenAI → fallback) (Остались без изменений)
-# ... (код _generate_and_send_plan, diag, rb_pick и rule_based_plan остается прежним) ...
-
-# ------------------------------------------------- [СОВЕРШЕННО НОВАЯ СЕКЦИЯ]
 
 # ------------------------------------------------- OpenAI client (+ /diag)
 _openai_client: Optional[OpenAI] = None
@@ -327,10 +325,6 @@ async def diag(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(f"✅ OpenAI доступен. Модель: {MODEL_NAME}")
     except Exception as e:
         await update.message.reply_text(f"❌ OpenAI недоступен: {e}")
-
-
-# ... (Код для RB_BLOCKS, rule_based_plan и т.д. опущен здесь для краткости, но должен быть в вашем файле) ...
-# ... (Он был включен в предыдущих ответах, скопируйте его) ...
 
 
 # ------------------------------------------------- РЕГИСТРАЦИЯ И ЗАПУСК

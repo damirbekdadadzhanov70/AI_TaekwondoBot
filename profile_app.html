@@ -12,13 +12,14 @@
             /* Используем переменные Telegram для автоматической поддержки тем */
             background-color: var(--tg-theme-bg-color, #fff);
             color: var(--tg-theme-text-color, #000);
+            /* Используем системный шрифт для лучшей интеграции */
             font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
             padding: 20px;
             margin: 0;
             display: flex;
             flex-direction: column;
             gap: 15px;
-            /* Убеждаемся, что контент занимает всю высоту для корректного размещения кнопки */
+            /* Обеспечиваем минимальную высоту для размещения кнопки */
             min-height: 100vh;
         }
         .form-group {
@@ -31,48 +32,39 @@
             color: var(--tg-theme-hint-color, #aaa);
             font-size: 14px;
         }
+        /* Стилизация полей ввода */
         input[type="number"] {
             padding: 10px;
             border: 1px solid var(--tg-theme-secondary-bg-color, #eee);
-            background-color: var(--tg-theme-secondary-bg-color, #eee);
-            color: var(--tg-theme-text-color, #000);
             border-radius: 8px;
-            transition: border-color 0.2s;
-            -webkit-appearance: none;
-            -moz-appearance: textfield;
+            background-color: var(--tg-theme-secondary-bg-color, #f4f4f5);
+            color: var(--tg-theme-text-color, #000);
             font-size: 16px;
+            transition: border-color 0.2s;
         }
-        /* Стили для Main Button Telegram */
-        #main-button-container {
-            flex-grow: 1;
-            display: flex;
-            align-items: flex-end; /* Прижимает кнопку к низу */
-            padding-bottom: 20px; /* Отступ от края */
+        input[type="number"]:focus {
+            outline: none;
+            border-color: var(--tg-theme-button-color, #007aff);
         }
     </style>
 </head>
 <body>
-    <h1>🥋 Профиль спортсмена</h1>
-    <p>Введите свои актуальные данные. Мы используем их для персонализации планов.</p>
+    <h1>Настройка профиля спортсмена</h1>
 
     <div class="form-group">
-        <label for="age">Возраст (лет)</label>
-        <input type="number" id="age" min="4" max="100" placeholder="Например, 25">
+        <label for="age">Возраст (лет):</label>
+        <input type="number" id="age" name="age" placeholder="Например, 15" min="4" required>
     </div>
 
     <div class="form-group">
-        <label for="height">Рост (см)</label>
-        <input type="number" id="height" min="80" max="230" placeholder="Например, 175">
+        <label for="height">Рост (см):</label>
+        <input type="number" id="height" name="height" placeholder="Например, 175" min="80" required>
     </div>
 
     <div class="form-group">
-        <label for="weight">Вес (кг)</label>
-        <input type="number" id="weight" step="0.1" min="15" max="250" placeholder="Например, 68.5">
+        <label for="weight">Вес (кг, можно с точкой/запятой):</label>
+        <input type="number" id="weight" name="weight" placeholder="Например, 65.5" min="15" step="0.1" pattern="[0-9]*[.,]?[0-9]+" required>
     </div>
-
-    <div id="main-button-container">
-        </div>
-
 
     <script>
         // Инициализация Mini App
@@ -81,32 +73,51 @@
         const mainButton = Telegram.WebApp.MainButton;
 
         function validateAndSend() {
+            // Считываем значения полей
             const age = document.getElementById('age').value.trim();
             const height = document.getElementById('height').value.trim();
             const weight = document.getElementById('weight').value.trim();
 
             if (!age || !height || !weight) {
-                // Показываем нативное предупреждение Telegram
                 Telegram.WebApp.showAlert('Пожалуйста, заполните все поля!');
                 return;
             }
 
-            // Форматируем вес, чтобы гарантировать точку как разделитель
+            // --- Парсинг данных ---
+
+            // Заменяем запятую на точку для корректного парсинга дробного числа
+            const sanitizedWeight = weight.replace(',', '.');
+
             const data = {
+                // parseInt преобразует возраст и рост в целые числа
                 age: parseInt(age),
                 height: parseInt(height),
-                // Заменяем запятую на точку, если пользователь ввел дробное число
-                weight: parseFloat(weight.replace(',', '.'))
+                // parseFloat преобразует вес в дробное число
+                weight: parseFloat(sanitizedWeight)
             };
 
-            if (data.age < 4 || data.height < 80 || data.weight < 15) {
-                Telegram.WebApp.showAlert('Введены некорректные значения!');
+            // --- Валидация ---
+
+            // Проверка, что парсинг не вернул NaN и что значения в пределах разумного
+            if (isNaN(data.age) || isNaN(data.height) || isNaN(data.weight) ||
+                data.age < 4 || data.height < 80 || data.weight < 15) {
+
+                Telegram.WebApp.showAlert('Введены некорректные значения! Убедитесь, что используете числа.');
                 return;
             }
 
-            // Отправляем данные боту в виде JSON-строки
-            mainButton.showProgress(true); // Показываем загрузку
+            // --- Отправка данных ---
+
+            // 💡 ВАЖНОЕ ЛОГИРОВАНИЕ ДЛЯ ОТЛАДКИ (будет видно в консоли браузера!)
+            console.log("Mini App: Данные успешно собраны и отправляются боту:", data);
+
+            // Показываем индикатор загрузки на главной кнопке
+            mainButton.showProgress(true);
+
+            // Отправляем JSON-строку с данными боту
             Telegram.WebApp.sendData(JSON.stringify(data));
+
+            // Мини-приложение теперь ждет ответа от бота (ответ должен закрыть окно)
         }
 
         // Настройка главной кнопки Telegram

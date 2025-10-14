@@ -151,9 +151,19 @@ async def handle_profile_data(update: Update, context: ContextTypes.DEFAULT_TYPE
         else:
             await update.message.reply_text("❌ Ошибка валидации данных. Проверьте введенные значения.")
 
-    except Exception as e:
-        await update.message.reply_text(f"❌ Произошла ошибка при обработке данных Mini App: {e}")
+except Exception as e:
 
+import traceback
+
+error_info = traceback.format_exc()
+
+logger.error(f"Критическая ошибка Mini App! Трассировка:\n{error_info}")  # Логируем
+
+# Отправляем ответ, чтобы Mini App закрылось, даже если произошла ошибка
+
+await update.message.reply_text(f"❌ Критическая ошибка на сервере. См. логи. (Тип: {type(e).__name__})")
+
+return
 
 # НОВЫЙ КОД / ИСПРАВЛЕНИЕ: Запускает Mini App вместо диалога
 async def profile_command(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:

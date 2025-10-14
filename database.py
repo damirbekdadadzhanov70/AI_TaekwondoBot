@@ -44,12 +44,15 @@ def load_profiles() -> None:
 def save_profiles() -> None:
     """Сохраняем профили на диск после изменений."""
     try:
+        data_to_save = json.dumps(USER_PROFILES, ensure_ascii=False, indent=2)
         DB_FILE.write_text(
-            json.dumps(USER_PROFILES, ensure_ascii=False, indent=2),
+            data_to_save,
             encoding="utf-8"
         )
-    except Exception:
-        pass
+    except Exception as e: # <-- Теперь мы увидим ошибку
+        # Используем встроенное логирование Python, чтобы увидеть ошибку в консоли
+        import logging
+        logging.getLogger("AI_TaekwondoBot").error(f"Ошибка сохранения профилей: {e}")
 
 
 # ------------ API профилей ------------

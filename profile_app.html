@@ -35,16 +35,25 @@
         /* Стилизация полей ввода */
         input[type="number"] {
             padding: 10px;
-            border: 1px solid var(--tg-theme-secondary-bg-color, #eee);
+            border: 1px solid var(--tg-theme-secondary-bg-color, #f0f0f0);
             border-radius: 8px;
-            background-color: var(--tg-theme-secondary-bg-color, #f4f4f5);
+            background-color: var(--tg-theme-secondary-bg-color, #f5f5f5);
             color: var(--tg-theme-text-color, #000);
             font-size: 16px;
-            transition: border-color 0.2s;
+            /* Убираем дефолтные стрелки в Chrome/Edge */
+            -moz-appearance: textfield;
         }
-        input[type="number"]:focus {
-            outline: none;
-            border-color: var(--tg-theme-button-color, #007aff);
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        /* Стили для заголовка */
+        h1 {
+            color: var(--tg-theme-text-color, #000);
+            font-size: 20px;
+            margin-top: 0;
+            margin-bottom: 10px;
         }
     </style>
 </head>
@@ -52,19 +61,23 @@
     <h1>Настройка профиля спортсмена</h1>
 
     <div class="form-group">
-        <label for="age">Возраст (лет):</label>
-        <input type="number" id="age" name="age" placeholder="Например, 15" min="4" required>
+        <label for="age">Возраст, лет (минимум 4)</label>
+        <input type="number" id="age" placeholder="8">
     </div>
 
     <div class="form-group">
-        <label for="height">Рост (см):</label>
-        <input type="number" id="height" name="height" placeholder="Например, 175" min="80" required>
+        <label for="height">Рост, см (минимум 80)</label>
+        <input type="number" id="height" placeholder="130">
     </div>
 
     <div class="form-group">
-        <label for="weight">Вес (кг, можно с точкой/запятой):</label>
-        <input type="number" id="weight" name="weight" placeholder="Например, 65.5" min="15" step="0.1" pattern="[0-9]*[.,]?[0-9]+" required>
+        <label for="weight">Вес, кг (минимум 15)</label>
+        <input type="number" id="weight" placeholder="35.5">
     </div>
+
+    <p style="font-size: 12px; color: var(--tg-theme-hint-color);">
+        Используйте точку или запятую для дробного веса (например, 35.5 или 35,5).
+    </p>
 
     <script>
         // Инициализация Mini App
@@ -72,20 +85,26 @@
 
         const mainButton = Telegram.WebApp.MainButton;
 
+        // Показываем нативную кнопку "Назад", которая будет закрывать окно
+        Telegram.WebApp.BackButton.show();
+        Telegram.WebApp.BackButton.onClick(function() {
+            // Ручное закрытие окна
+            Telegram.WebApp.close();
+        });
+
+
         function validateAndSend() {
-            // Считываем значения полей
             const age = document.getElementById('age').value.trim();
             const height = document.getElementById('height').value.trim();
             const weight = document.getElementById('weight').value.trim();
 
             if (!age || !height || !weight) {
+                // Показываем нативное предупреждение Telegram
                 Telegram.WebApp.showAlert('Пожалуйста, заполните все поля!');
                 return;
             }
 
-            // --- Парсинг данных ---
-
-            // Заменяем запятую на точку для корректного парсинга дробного числа
+            // Форматируем вес, чтобы гарантировать точку как разделитель
             const sanitizedWeight = weight.replace(',', '.');
 
             const data = {
@@ -108,16 +127,28 @@
 
             // --- Отправка данных ---
 
-            // 💡 ВАЖНОЕ ЛОГИРОВАНИЕ ДЛЯ ОТЛАДКИ (будет видно в консоли браузера!)
-            console.log("Mini App: Данные успешно собраны и отправляются боту:", data);
-
-            // Показываем индикатор загрузки на главной кнопке
-            mainButton.showProgress(true);
+            mainButton.showProgress(true); // Показываем загрузку
 
             // Отправляем JSON-строку с данными боту
             Telegram.WebApp.sendData(JSON.stringify(data));
 
-            // Мини-приложение теперь ждет ответа от бота (ответ должен закрыть окно)
+            // 💡 КЛЮЧЕВОЕ UX-ИСПРАВЛЕНИЕ:
+            // Скрываем спиннер и показываем нативное уведомление,
+            // но не закрываем окно, чтобы пользователь мог остаться.
+            setTimeout(() => {
+                mainButton.hideProgress();
+                Telegram.WebApp.HapticFeedback.notificationOccurred('success'); // Приятный вибро-отклик
+
+                Telegram.WebApp.showPopup({
+                    title: 'Профиль обновлен',
+                    message: 'Ваши данные успешно сохранены.',
+                    buttons: [{ type: 'close', text: 'ОК' }] // Пользователь нажимает ОК и остается в окне
+                });
+
+                // Здесь вы можете изменить текст кнопки на "Перейти к плану" и т.п.
+                // mainButton.setText("▶️ Перейти к плану");
+
+            }, 300); // 300мс задержка для отправки данных
         }
 
         // Настройка главной кнопки Telegram

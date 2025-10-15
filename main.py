@@ -1,11 +1,10 @@
 # main.py — ядро бота: роли, минимальный профиль, старт-меню и ПЕРСОНАЛЬНЫЙ мастер /plan
-# Требует соседние файлы: config.py и database.py (из нашего проекта).
 
 from __future__ import annotations
 import logging
-import traceback  # НОВОЕ: для отладки
+import traceback
 from typing import Optional
-import json  # НОВЫЙ КОД: Нужен для обработки JSON из Mini App
+import json
 
 from telegram import (
     Update, InlineKeyboardButton, InlineKeyboardMarkup,
@@ -17,9 +16,10 @@ from telegram.ext import (
     ConversationHandler, MessageHandler, filters
 )
 
-from openai import OpenAI  # OpenAI SDK v1.x
+from openai import OpenAI
 
 from config import TELEGRAM_BOT_TOKEN, OPENAI_API_KEY, MODEL_NAME, TEMPERATURE
+# Убедитесь, что database.py находится в той же папке и содержит update_profile
 from database import get_or_create_profile, update_profile, attach_visuals, load_profiles
 
 # ------------------------------------------------- ЛОГИРОВАНИЕ
@@ -71,6 +71,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         )
 
     kb = InlineKeyboardMarkup([
+        # Эта кнопка откроет Mini App
         [InlineKeyboardButton("✏️ Обновить профиль", callback_data="open_profile")],
         [InlineKeyboardButton("🔄 Сменить роль", callback_data="open_role_picker")],
     ])
@@ -122,24 +123,21 @@ async def cb_set_role(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 
 # ------------------------------------------------- ПРОФИЛЬ (Mini App)
-# ВАШ АДРЕС:
+# ВАШ АДРЕС: Убедитесь, что этот URL совпадает с адресом в BotFather
 YOUR_APP_URL = "https://damirbekdadadzhanov70.github.io/AI_TaekwondoBot/profile_app.html"
 
 
-# main.py, строка ~150
-# ...
-# ------------------------------------------------- ПРОФИЛЬ (Mini App)
-# ...
-
 async def handle_profile_data(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Принимает JSON-данные о профиле, отправленные из Mini App."""
+    """
+    Принимает JSON-данные о профиле.
+    Mini App остается открытым, так как бот не отправляет ответное сообщение.
+    """
     if not update.message.web_app_data:
         return
 
     data = update.message.web_app_data.data
     uid = update.effective_user.id
 
-    # 💡 НОВЫЙ КОД ДЛЯ ДЕБАГА
     logger.info(f"Получены данные Mini App от {uid}: {data}")
 
     try:
@@ -150,31 +148,28 @@ async def handle_profile_data(update: Update, context: ContextTypes.DEFAULT_TYPE
         height = int(profile_data.get("height", 0))
         weight = float(profile_data.get("weight", 0))
 
-        # 💡 НОВЫЙ КОД ДЛЯ ДЕБАГА
         logger.info(f"Parsed data: age={age}, height={height}, weight={weight}")
 
         if age >= 4 and height >= 80 and weight >= 15:
             # Вызываем функцию из database.py
-            saved = update_profile(uid, age=age, height=height, weight=weight)
-
-            # 💡 НОВЫЙ КОД ДЛЯ ДЕБАГА
-            logger.info(f"Профиль {uid} успешно обновлен. Отправка ответа.")
-
-            await update.message.reply_text(
-                "✅ *Профиль спортсмена обновлен через Mini App*.\n"
-                f"Возраст: {saved['age']} | Рост: {saved['height']} см | Вес: {saved['weight']} кг",
-                parse_mode="Markdown"
-            )
+            update_profile(uid, age=age, height=height, weight=weight)
+            logger.info(f"Профиль {uid} успешно обновлен. Мини-приложение ОСТАЕТСЯ открытым.")
         else:
-            await update.message.reply_text("❌ Ошибка валидации данных. Проверьте введенные значения.")
+            logger.warning(f"Ошибка валидации данных для {uid}")
+
+    except json.JSONDecodeError:
+        logger.error(f"Ошибка парсинга JSON для {uid}: {data}", exc_info=True)
 
     except Exception as e:
-        # 💡 Улучшенное логирование с traceback
         logger.error(f"Критическая ошибка при обработке данных Mini App для {uid}: {e}", exc_info=True)
-        await update.message.reply_text(f"❌ Произошла ошибка при обработке данных Mini App: {e}")
+
+    finally:
+        # КЛЮЧЕВОЙ МОМЕНТ: мы убрали update.message.reply_text.
+        # Это гарантирует, что Telegram НЕ закроет Mini App автоматически.
+        pass
 
 
-# НОВЫЙ КОД / ИСПРАВЛЕНИЕ: Запускает Mini App вместо диалога
+# Запускает Mini App
 async def profile_command(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     uid = update.effective_user.id
     role = get_or_create_profile(uid).get("role", "athlete")
@@ -197,7 +192,7 @@ async def profile_command(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     return
 
 
-# НОВЫЙ КОД / ИСПРАВЛЕНИЕ: Запускает Mini App из кнопки
+# Запускает Mini App из кнопки
 async def profile_from_button(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     q = update.callback_query
     await q.answer()
@@ -272,6 +267,8 @@ async def p_coach_finish(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     # Здесь должен быть вызов _generate_and_send_plan (ваш код опущен)
     # await _generate_and_send_plan(update, context, prof, params)
     context.user_data.pop("plan", None)
+    await update.message.reply_text("Тренировочный план для группы сгенерирован (нужен вызов LLM).",
+                                    reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
 
@@ -302,6 +299,8 @@ async def p_ath_finish(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     # Здесь должен быть вызов _generate_and_send_plan (ваш код опущен)
     # await _generate_and_send_plan(update, context, prof, params)
     context.user_data.pop("plan", None)
+    await update.message.reply_text("Тренировочный план для спортсмена сгенерирован (нужен вызов LLM).",
+                                    reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
 

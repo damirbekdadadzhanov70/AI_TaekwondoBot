@@ -3,8 +3,10 @@
 from __future__ import annotations
 import json
 from pathlib import Path
-from typing import Dict, Any
-import logging # НОВОЕ: для отладки
+from typing import Dict, Any # <-- ИСПРАВЛЕНИЕ: Импортируем Dict и Any
+import logging
+
+logger = logging.getLogger("AI_TaekwondoBot")
 
 # ------------ файл для хранения профилей ------------
 DB_FILE = Path("profiles.json")
@@ -37,7 +39,8 @@ def load_profiles() -> None:
                 USER_PROFILES = {str(k): (v if isinstance(v, dict) else {}) for k, v in data.items()}
             else:
                 USER_PROFILES = {}
-        except Exception:
+        except Exception as e:
+            logger.error(f"Ошибка при загрузке профилей: {e}")
             USER_PROFILES = {}
     else:
         USER_PROFILES = {}
@@ -45,17 +48,14 @@ def load_profiles() -> None:
 def save_profiles() -> None:
     """Сохраняем профили на диск после изменений."""
     try:
-        # НОВОЕ: Гарантируем, что все None заменены на None, которые JSON может обработать (не применимо, но для чистоты)
-        data_to_save = json.dumps(USER_PROFILES, ensure_ascii=False, indent=2)
+        # Убедитесь, что эта функция не занимает слишком много времени!
         DB_FILE.write_text(
-            data_to_save,
+            json.dumps(USER_PROFILES, ensure_ascii=False, indent=2),
             encoding="utf-8"
         )
     except Exception as e:
-        # ИСПРАВЛЕНИЕ: Выводим ошибку в консоль, если сохранение не удалось
-        logging.getLogger("AI_TaekwondoBot").error(f"Ошибка сохранения профилей: {e}")
-        # НЕ ГЛОТАЙТЕ ОШИБКИ, ЕСЛИ ЭТО КРИТИЧЕСКИ ВАЖНАЯ ОПЕРАЦИЯ!
-        raise
+        logger.error(f"Критическая ошибка при сохранении профилей: {e}")
+        raise # Не глотаем ошибки, чтобы знать, что произошло
 
 
 # ------------ API профилей ------------
@@ -89,16 +89,14 @@ TECHNIQUE_LIBRARY = {
         "ru": "Средний блок",
         "link": "https://files.catbox.moe/5r1y9m.mp4"
     }
-    # Добавляйте свои техники
+    # Добавляйте свои...
 }
 
 def attach_visuals(text: str) -> str:
-    """Находит корейские термины в тексте и дописывает рядом ссылку на видео."""
-    if not text:
-        return text
-    processed = text
-    for term, data in TECHNIQUE_LIBRARY.items():
-        if term in processed:
-            link_md = f" ([Смотреть {data['ru']}]({data['link']}))"
-            processed = processed.replace(term, term + link_md)
-    return processed
+    """Заменяет названия техник ссылками на видео/гифки."""
+    for technique, data in TECHNIQUE_LIBRARY.items():
+        if technique in text:
+            # Заменяем только первое вхождение, чтобы не задвоить.
+            link_html = f"[{data['ru']}]({data['link']})"
+            text = text.replace(technique, link_html, 1)
+    return text

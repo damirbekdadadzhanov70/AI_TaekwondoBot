@@ -6,19 +6,19 @@
   <title>KukkiDo • Мини-приложение</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
-    /* Переменные для TWA-стиля */
+    /* --- CSS Переменные и Базовые Стили --- */
     :root {
       /* Используем переменные Telegram для адаптации к темам */
       --bg: var(--tg-theme-bg-color, #0f1115);
       --card: var(--tg-theme-secondary-bg-color, #161a22);
       --text: var(--tg-theme-text-color, #e6e6e6);
       --muted: var(--tg-theme-hint-color, #9aa4b2);
-      --acc: var(--tg-theme-button-color, #39c0ba);
+      --acc: var(--tg-theme-button-color, #39c0ba); /* Наш бирюзовый акцент */
       --acc-text: var(--tg-theme-button-text-color, #fff);
       --danger: #ff5252;
+      --shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     }
 
-    /* Базовые стили */
     * { box-sizing: border-box; }
     body {
       margin: 0;
@@ -46,6 +46,7 @@
       color: var(--text);
       font-weight: 600;
       margin-bottom: 4px;
+      margin-top: 10px; /* Добавлено для лучшего разделения */
       font-size: 14px;
     }
     .input-group { margin-bottom: 12px; }
@@ -83,9 +84,10 @@
       font-weight: 700;
       cursor: pointer;
       text-align: center;
-      transition: opacity 0.2s, background 0.2s;
+      transition: opacity 0.2s, background 0.2s, transform 0.1s;
       border: none;
       font-size: 16px;
+
     }
     .btn.primary {
       background: var(--acc);
@@ -96,6 +98,10 @@
       background: var(--card);
       color: var(--text);
       border: 1px solid var(--muted);
+    }
+    .btn:active:not(:disabled) {
+        opacity: 0.9;
+        transform: scale(0.99);
     }
     .btn:disabled {
       opacity: 0.5;
@@ -115,7 +121,7 @@
       padding: 8px 12px; border-radius: 8px; background: var(--bg); border: 1px solid var(--muted);
       cursor: pointer; font-size: 14px; transition: background 0.2s, border-color 0.2s; display: flex; align-items: center; gap: 6px;
     }
-    .inventory-item.selected { background: var(--acc); color: var(--acc-text); border-color: var(--acc); }
+    .inventory-item.selected { background: var(--acc); color: var(--acc-text); border-color: var(--acc); font-weight: 600; }
 
     /* Стиль результата */
     .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
@@ -141,6 +147,7 @@
 
   <div class="wrap">
 
+
     <div id="screen-role" class="screen">
       <h1 id="welcome-message">🥋 Привет, Чемпион!</h1>
       <p>Выберите вашу роль для доступа к функционалу KukkiDo:</p>
@@ -158,6 +165,7 @@
       </div>
     </div>
 
+
     <div id="screen-coach" class="screen hidden">
       <h1>Конструктор развития качеств</h1>
       <p>Выберите качества и параметры для генерации плана по методике ТФК.</p>
@@ -168,11 +176,11 @@
             <div class="input-group">
               <label for="age_band">Возрастная группа</label>
               <select id="age_band">
-                <option value="U9">U9 (4-8 лет)</option>
-                <option value="U11">U11 (9-10 лет)</option>
-                <option value="U13" selected>U13 (11-13 лет)</option>
-                <option value="U17">U17 (14-17 лет)</option>
-                <option value="Adults">Взрослые (18+)</option>
+                <!-- Обновленные возрастные группы -->
+                <option value="junior_youth">Младшие юноши (9-11)</option>
+                <option value="cadet" selected>Кадеты (12-14)</option>
+                <option value="junior">Юниоры (15-17)</option>
+                <option value="adult">Взрослые (17+)</option>
               </select>
             </div>
 
@@ -185,14 +193,18 @@
           <div class="input-group">
             <label for="goal">Основное развиваемое качество (ТФК)</label>
             <select id="goal">
-              <option value="strength">💪 Сила</option>
-              <option value="speed" selected>⚡ Скорость</option>
-              <option value="agility">🤸 Ловкость</option>
-              <option value="endurance">🔥 Выносливость</option>
-              <option value="flexibility">🧘 Гибкость/Растяжка</option>
-              <option value="strength_endurance">🏋️ Комбинированное: Сила + Выносливость</option>
-              <option value="speed_agility">🏃 Комбинированное: Скорость + Ловкость</option>
-              <option value="power_speed">💥 Комбинированное: Взрывная сила + Скорость</option>
+              <optgroup label="Базовые Качества">
+                  <option value="strength">💪 Сила</option>
+                  <option value="speed" selected>⚡ Скорость</option>
+                  <option value="agility">🤸 Ловкость/Координация</option>
+                  <option value="endurance">🔥 Выносливость</option>
+                  <option value="flexibility">🧘 Гибкость/Растяжка</option>
+              </optgroup>
+              <optgroup label="Комбинированные Качества">
+                  <option value="strength_endurance">🏋️ Сила + Выносливость</option>
+                  <option value="speed_agility">🏃 Скорость + Ловкость</option>
+                  <option value="power_speed">💥 Взрывная сила + Скорость</option>
+              </optgroup>
             </select>
           </div>
 
@@ -220,7 +232,8 @@
             <div class="inventory-item" data-inv="skipping_rope">➰ Скакалка</div>
             <div class="inventory-item" data-inv="resistance_band">🔗 Жгут</div>
             <div class="inventory-item" data-inv="cones">🔺 Конусы / Фишки</div>
-            <div class="inventory-item" data-inv="tennis_balls">🎾 Мячи (теннис)</div>
+            <!-- Обновлено название инвентаря -->
+            <div class="inventory-item" data-inv="tennis_balls">🎾 Теннисный мяч</div>
             <div class="inventory-item" data-inv="agility_ladder">🪜 Лестница</div>
             <div class="inventory-item" data-inv="hurdles">🚧 Барьеры</div>
             <div class="inventory-item" data-inv="weighted_vests">🏋️ Жилет (утяж.)</div>
@@ -242,8 +255,16 @@
           <span id="engine-span" class="engine-tag"></span>
         </div>
         <pre id="result" class="result-plan">Здесь появится сгенерированный план.</pre>
-        <button id="save-btn" type="button" class="btn secondary" style="margin-top: 10px;">💾 Сохранить как шаблон</button>
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+             <button id="save-btn" type="button" class="btn secondary" style="width: 50%;">💾 Сохранить шаблон</button>
+             <button id="copy-btn" type="button" class="btn secondary" style="width: 50%;">📋 Копировать текст</button>
+        </div>
       </div>
+
+      <!-- Кнопка "Назад" - теперь всегда видима на этом экране -->
+      <button id="back-to-role-btn" type="button" class="btn secondary" style="margin-top: 20px;">
+        ← Назад
+      </button>
     </div>
   </div>
 
@@ -255,12 +276,24 @@
 
     const $ = (id) => document.getElementById(id);
 
-    const postJSON = async (url, data, headers = {}) => {
+    // --- ФУНКЦИЯ API-ЗАПРОСА С АУТЕНТИФИКАЦИЕЙ ---
+    const postJSON = async (url, data) => {
+      const init_data = tg.initData;
+      if (!init_data) {
+          tg.showAlert("Ошибка: Telegram initData не доступен. Перезапустите Mini App.");
+          throw new Error("Missing initData");
+      }
+
       const response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...headers },
+        headers: {
+            'Content-Type': 'application/json',
+            // 🌟 ОТПРАВЛЯЕМ initData в специальном заголовке (как ожидается бэкендом)
+            'X-TMA-Init-Data': init_data,
+        },
         body: JSON.stringify(data)
       });
+
       if (!response.ok) {
         const errorText = await response.text();
         // Используем нативный TWA-метод для показа ошибки
@@ -284,6 +317,10 @@
     function switchScreen(activeScreen) {
         Object.values(screens).forEach(screen => screen.classList.add('hidden'));
         activeScreen.classList.remove('hidden');
+        if (activeScreen === screens.role) {
+            // Сбрасываем результат при возврате на экран выбора роли
+            $('result-card').classList.add('hidden');
+        }
     }
 
     function selectRole(role) {
@@ -295,6 +332,10 @@
              tg.showAlert("Раздел 'Спортсмен' в разработке.");
         }
     }
+
+    $('back-to-role-btn').addEventListener('click', () => {
+        switchScreen(screens.role);
+    });
 
     // --- ЛОГИКА ИНВЕНТАРЯ (ПЛИТКИ) ---
     const inventoryItems = document.querySelectorAll('.inventory-item');
@@ -313,6 +354,7 @@
     // --- ГЕНЕРАЦИЯ ПЛАНА ---
     const genBtn = $('generate-btn');
     const saveBtn = $('save-btn');
+    const copyBtn = $('copy-btn');
     const resultCard = $('result-card');
     const resultPre = $('result');
     const engineSpan = $('engine-span');
@@ -322,6 +364,7 @@
       e.preventDefault();
       genBtn.disabled = true;
       saveBtn.disabled = true;
+      copyBtn.disabled = true;
       resultCard.classList.add('hidden');
       resultPre.textContent = "⚙️ Генерируем план...";
       tg.HapticFeedback?.impactOccurred('medium');
@@ -339,29 +382,27 @@
         };
         const notes = $('notes').value || "";
 
-        // 🌟 ИЗМЕНЕНИЕ: Отправляем init_data вместо user_id
-        const init_data = tg.initData;
-        if (!init_data) {
-            tg.showAlert("Ошибка: Telegram initData не доступен. Перезапустите Mini App.");
-            return;
-        }
-
-        const data = await postJSON(BACKEND_URL + "/api/coach_plan", { init_data, params, notes });
+        // Отправляем только параметры и заметки. init_data автоматически добавляется в postJSON.
+        const data = await postJSON(BACKEND_URL + "/api/coach_plan", { params, notes });
 
         // 🌟 ЛОГИКА ФОРМАТИРОВАНИЯ ДЛЯ КРАСОТЫ 🌟
         let formattedPlan = data.plan
-            .replace(/\\n/g, '\n') // Заменяем \n на настоящие переносы
-            .replace(/(\*\*([^*]+)\*\*)|(Станция\s+[A-ZА-Я]\s*—\s*[^:]+)|(Заметки тренеру:)/g, (match, gptBold, gptText, station, notes) => {
-                // Обработка жирного текста (GPT) или заголовков станций (Rule)
+            // Заменяем \n на настоящие переносы, если они были экранированы в бэкенде
+            .replace(/\\n/g, '\n')
+            // Ищем жирный текст (от GPT), или явные заголовки (Станция, Заметки тренеру)
+            // и оборачиваем их в <strong> для стилизации CSS.
+            .replace(/(\*\*([^*]+)\*\*)|(Станция\s+[A-ZА-Я]\s*—\s*[^:]+)|(Заметки тренеру:)/g, (match, gptBold, gptText) => {
+                // Если сработал gptBold (текст в **), используем его содержимое
                 if (gptBold) return `<strong>${gptText.trim()}</strong>`;
-                if (station || notes) return `<strong>${match.trim()}</strong>`;
-                return match;
+                // Иначе используем полный найденный match (Станция или Заметки)
+                return `<strong>${match.trim()}</strong>`;
             });
 
         resultPre.innerHTML = formattedPlan;
         engineSpan.textContent = data.engine === "gpt" ? "🧠 AI (GPT)" : "⚙️ Rule-based";
         resultCard.classList.remove("hidden");
         saveBtn.disabled = false;
+        copyBtn.disabled = false;
         tg.HapticFeedback?.notificationOccurred("success");
       } catch (e) {
         // Ошибки уже обработаны в postJSON через tg.showAlert
@@ -374,40 +415,79 @@
       }
     });
 
-    // --- СОХРАНЕНИЕ ШАБЛОНА ---
-    saveBtn?.addEventListener("click", async () => {
+    // --- КОПИРОВАНИЕ ТЕКСТА ---
+    copyBtn?.addEventListener("click", () => {
+        const plan = resultPre.textContent;
+        if (!plan || plan.startsWith("❌")) {
+            tg.showAlert("Сначала сгенерируйте действительный план.");
+            return;
+        }
+
+        // Используем document.execCommand('copy') для совместимости в iframe
+        const textarea = document.createElement('textarea');
+        textarea.value = plan;
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+            document.execCommand('copy');
+            tg.HapticFeedback?.notificationOccurred("success");
+            tg.showAlert("✅ План скопирован в буфер обмена!");
+        } catch (err) {
+            tg.showAlert("❌ Не удалось скопировать план. Используйте стандартное выделение.");
+        }
+        document.body.removeChild(textarea);
+    });
+
+    // --- СОХРАНЕНИЕ ШАБЛОНА (Улучшено с tg.showPopup) ---
+    saveBtn?.addEventListener("click", () => {
       const plan = $('result').textContent;
       if (!plan || plan.startsWith("❌")) {
           tg.showAlert("Сначала сгенерируйте действительный план.");
           return;
       }
 
-      const name = prompt("Введите название для шаблона:");
-      if (!name) return;
+      tg.showPopup({
+        title: "💾 Сохранить шаблон",
+        message: "Введите название для плана-шаблона:",
+        text_input: {
+            placeholder: "Например: 'ОФП для кадетов'",
+            text: "" // Обязательно, чтобы показать поле ввода
+        },
+        buttons: [
+            { id: 'save', text: 'Сохранить', type: 'default' },
+            { id: 'cancel', text: 'Отмена', type: 'cancel' }
+        ]
+      }, async (btnId) => {
+          if (btnId !== 'save') return;
 
-      saveBtn.disabled = true;
+          // В TWA API нет прямого способа получить текст из text_input в showPopup.
+          // Приходится использовать prompt() или кастомный ввод.
+          // Вернемся к prompt() как в оригинальном коде, чтобы не усложнять.
+          const name = prompt("Введите название для шаблона:");
+          if (!name) return;
 
-      try {
-        const inv = getInventoryList();
-        const params = {
-          age_band: $('age_band').value,
-          group_size: Number($('group_size').value || 10),
-          goal: $('goal').value,
-          duration: Number($('duration').value || 60),
-          location: $('location').value,
-          inventory: inv.length > 0,
-          inventory_list: inv
-        };
+          saveBtn.disabled = true;
 
-        const init_data = tg.initData;
+          try {
+            const inv = getInventoryList();
+            const params = {
+              age_band: $('age_band').value,
+              group_size: Number($('group_size').value || 10),
+              goal: $('goal').value,
+              duration: Number($('duration').value || 60),
+              location: $('location').value,
+              inventory: inv.length > 0,
+              inventory_list: inv
+            };
 
-        await postJSON(BACKEND_URL + "/api/templates/save", { init_data, name, plan, params });
-        tg.showAlert(`Шаблон '${name}' успешно сохранен!`);
-      } catch (e) {
-        // Ошибки уже обработаны в postJSON
-      } finally {
-        saveBtn.disabled = false;
-      }
+            await postJSON(BACKEND_URL + "/api/templates/save", { name, plan, params });
+            tg.showAlert(`✅ Шаблон '${name}' успешно сохранен!`);
+          } catch (e) {
+            // Ошибки уже обработаны в postJSON
+          } finally {
+            saveBtn.disabled = false;
+          }
+      });
     });
 
     // --- ЗАГРУЗКА ИЗНАЧАЛЬНОГО ЭКРАНА ---

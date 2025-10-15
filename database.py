@@ -1,14 +1,15 @@
 # database.py — Простая SQLite-база для KukkiDo
 from __future__ import annotations
-import os, datetime as dt
+import os, datetime as dt, json
 from typing import Dict, Any, List, Optional
 import sqlite3 as sql
+import threading
 
 # Используем in-memory DB для тестов, иначе файл
 DB_PATH = os.getenv("DB_PATH", os.path.join(os.getenv("DATA_DIR", "./data"), "kukkido.db"))
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
-# 🌟 Глобальная блокировка для работы с SQLite
+# Глобальная блокировка для работы с SQLite
 _LOCK = threading.RLock()
 # Хранилище подключений (чтобы не открывать/закрывать постоянно)
 _CONN: Optional[sql.Connection] = None
@@ -36,24 +37,22 @@ def _init_db():
     c.execute("""
         CREATE TABLE IF NOT EXISTS profiles (
             user_id TEXT PRIMARY KEY,
-            role TEXT DEFAULT 'athlete',
+            role TEXT DEFAULT 'coach', -- Теперь role всегда присутствует
             age INTEGER,
-            height REAL,
+            height INTEGER,
             weight REAL,
             notes TEXT
         )
     """)
 
-    # 2. Таблица логов (logs)
+    # 2. Таблица логов (history)
     c.execute("""
-        CREATE TABLE IF NOT EXISTS logs (
+        CREATE TABLE IF NOT EXISTS history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id TEXT,
-            dt TEXT,
-            type TEXT,
-            params TEXT,
-            plan TEXT,
-            FOREIGN KEY(user_id) REFERENCES profiles(user_id)
+            timestamp TEXT,
+            type TEXT, -- 'plan', 'template_save', etc.
+            data TEXT -- JSON-строка параметров
         )
     """)
 
@@ -65,97 +64,119 @@ def _init_db():
             plan TEXT,
             params TEXT,
             created TEXT,
-            PRIMARY KEY (user_id, name),
-            FOREIGN KEY(user_id) REFERENCES profiles(user_id)
+            PRIMARY KEY (user_id, name) -- Уникальное имя для каждого пользователя
         )
     """)
+
+    # 4. Обновление схемы, если нужно (например, чтобы добавить role старым пользователям,
+    # которые были созданы до исправления, хотя это лучше делать миграцией)
+    # Сейчас полагаемся на то, что новая логика в get_or_create_profile исправит это при первом обращении.
+
     conn.commit()
 
 
-# --- ПРОФИЛИ ---
 def get_or_create_profile(user_id: int) -> Dict[str, Any]:
     uid = str(user_id)
     with _LOCK:
         conn = _get_conn()
-        row = conn.execute("SELECT * FROM profiles WHERE user_id = ?", (uid,)).fetchone()
+
+        # 1. Попытка найти существующий профиль
+        cursor = conn.execute("SELECT * FROM profiles WHERE user_id = ?", (uid,))
+        row = cursor.fetchone()
+
         if row:
-            # Преобразуем Row в Dict, удаляем None
+            # Профиль найден
             d = dict(row)
-            d.pop('notes')  # Скрываем notes
-            return {k: v for k, v in d.items() if v is not None}
+            # 🌟 ДОБАВЛЕНА ПРОВЕРКА: Если роль по какой-то причине отсутствует в старой записи,
+            # устанавливаем 'coach' по умолчанию
+            if 'role' not in d or d['role'] is None:
+                d['role'] = 'coach'
+                # Можно было бы и обновить БД, но для простоты просто возвращаем исправленный словарь
 
-        # Если профиля нет, создаем
-        default = {"user_id": uid, "role": "athlete", "age": 0, "height": 0, "weight": 0.0, "notes": "{}"}
-        conn.execute("INSERT INTO profiles (user_id, role) VALUES (?, ?)", (uid, default['role']))
-        conn.commit()
-        return {k: v for k, v in default.items() if k != 'notes'}  # Возвращаем без notes
+            d['notes'] = json.loads(d['notes'])  # Обратное преобразование JSON-строки
+            return d
+        else:
+            # 2. Профиль не найден, создаем новый
+            default_profile = {
+                'user_id': uid,
+                'role': 'coach',  # <--- КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: Установка role по умолчанию
+                'age': 0,
+                'height': 0,
+                'weight': 0.0,
+                'notes': json.dumps({})  # Пустой JSON для notes
+            }
+
+            # Вставляем новый профиль
+            conn.execute("""
+                INSERT INTO profiles (user_id, role, age, height, weight, notes)
+                VALUES (:user_id, :role, :age, :height, :weight, :notes)
+            """, default_profile)
+            conn.commit()
+
+            # Возвращаем созданный профиль
+            return {
+                'user_id': uid,
+                'role': 'coach',
+                'age': 0,
+                'height': 0,
+                'weight': 0.0,
+                'notes': {}
+            }
 
 
-def update_profile(user_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+def update_profile(user_id: int, data: Dict[str, Any]) -> None:
     uid = str(user_id)
     with _LOCK:
         conn = _get_conn()
 
-        # Обновляем только разрешенные поля
-        set_parts = []
-        values = []
+        # Подготовка данных
+        notes_json = json.dumps(data.get('notes', {}), ensure_ascii=False)
 
-        for k, v in data.items():
-            if k in ['role', 'age', 'height', 'weight']:
-                set_parts.append(f"{k} = ?")
-                values.append(v)
-            # notes - это отдельное поле, которое может быть JSON-строкой
-            # if k == 'notes':
-            #     set_parts.append(f"{k} = ?")
-            #     values.append(json.dumps(v, ensure_ascii=False))
-
-        if not set_parts:
-            return get_or_create_profile(user_id)
-
-        values.append(uid)
-        sql_update = f"UPDATE profiles SET {', '.join(set_parts)} WHERE user_id = ?"
-        conn.execute(sql_update, tuple(values))
+        conn.execute("""
+            UPDATE profiles SET
+            role = ?,
+            age = ?,
+            height = ?,
+            weight = ?,
+            notes = ?
+            WHERE user_id = ?
+        """, (
+            data.get('role', 'coach'),
+            data.get('age', 0),
+            data.get('height', 0),
+            data.get('weight', 0.0),
+            notes_json,
+            uid
+        ))
         conn.commit()
 
-        return get_or_create_profile(user_id)
 
-
-# --- ЛОГИ ---
-def add_log_entry(user_id: int, entry: Dict[str, Any]) -> None:
+# ---- Логирование (история) ----
+def add_log_entry(user_id: int, data: Dict[str, Any]) -> None:
     uid = str(user_id)
     with _LOCK:
         conn = _get_conn()
-        dt_str = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
+        timestamp = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
 
-        # Преобразование plan и params в JSON-строки для хранения
-        plan = entry.get("plan", "")
-        params = json.dumps(entry.get("params", {}), ensure_ascii=False)
-        log_type = entry.get("type", "unknown")
+        # Преобразование данных в JSON-строку
+        data_json = json.dumps(data, ensure_ascii=False)
 
         conn.execute("""
-            INSERT INTO logs (user_id, dt, type, params, plan)
-            VALUES (?, ?, ?, ?, ?)
-        """, (uid, dt_str, log_type, params, plan))
+            INSERT INTO history (user_id, timestamp, type, data)
+            VALUES (?, ?, ?, ?)
+        """, (uid, timestamp, data.get('type', 'unknown'), data_json))
 
         conn.commit()
 
-        # Очистка старых логов (оставляем только последние 500 для каждого пользователя)
-        conn.execute("""
-            DELETE FROM logs WHERE id NOT IN (
-                SELECT id FROM logs WHERE user_id = ? ORDER BY id DESC LIMIT 500
-            ) AND user_id = ?
-        """, (uid, uid))
-        conn.commit()
 
-
-def get_logs(user_id: int, limit: int = 10) -> List[Dict[str, Any]]:
+def get_logs(user_id: int, limit: int) -> List[Dict[str, Any]]:
     uid = str(user_id)
     with _LOCK:
         conn = _get_conn()
         cursor = conn.execute("""
-            SELECT dt, type, params, plan FROM logs 
+            SELECT timestamp, type, data FROM history 
             WHERE user_id = ? 
-            ORDER BY id DESC 
+            ORDER BY timestamp DESC
             LIMIT ?
         """, (uid, limit))
 
@@ -164,9 +185,9 @@ def get_logs(user_id: int, limit: int = 10) -> List[Dict[str, Any]]:
             d = dict(row)
             # Обратное преобразование JSON-строки в Dict
             try:
-                d['params'] = json.loads(d['params'])
+                d['data'] = json.loads(d['data'])
             except:
-                d['params'] = {}
+                d['data'] = {}
             logs.append(d)
 
         return logs
@@ -213,5 +234,5 @@ def list_templates(user_id: int) -> List[Dict[str, Any]]:
         return templates
 
 
-# Инициализируем базу данных при первом запуске
+# Вызываем инициализацию, чтобы создать таблицу при старте
 _init_db()

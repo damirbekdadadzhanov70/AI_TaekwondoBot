@@ -124,9 +124,15 @@
       white-space: pre-wrap; word-break: break-word; font-family: inherit; padding: 12px; border-radius: 12px;
       background: var(--bg); border: 1px solid var(--card); line-height: 1.6; font-size: 14px;
     }
+    /* Улучшенное форматирование для заголовков */
     .result-plan strong {
-      display: block; margin-top: 10px; margin-bottom: 5px; font-size: 16px; color: var(--acc);
-      border-bottom: 1px dashed var(--muted); padding-bottom: 3px;
+      display: block;
+      margin-top: 10px;
+      margin-bottom: 5px;
+      font-size: 16px;
+      color: var(--acc);
+      border-bottom: 1px dashed var(--muted);
+      padding-bottom: 3px;
     }
     .hidden { display: none !important; }
   </style>
@@ -243,9 +249,8 @@
 
   <script>
     const tg = window.Telegram.WebApp;
-    // Используем параметр backend, переданный ботом, или дефолтный адрес (который нужно заменить на реальный туннель)
+    // Используем параметр backend, переданный ботом, или дефолтный адрес
     const BACKEND_URL_PARAM = new URLSearchParams(window.location.search).get('backend');
-    // Внимание: Если бэкенд не запущен или недоступен по этому адресу, будет 'Failed to fetch'
     const BACKEND_URL = BACKEND_URL_PARAM || "http://127.0.0.1:8000";
 
     const $ = (id) => document.getElementById(id);
@@ -256,7 +261,6 @@
         body: JSON.stringify(data)
       });
       if (!response.ok) {
-        // Выбросим текст ответа, чтобы пользователь видел причину ошибки 400/500
         const errorText = await response.text();
         throw new Error(`HTTP ${response.status}: ${errorText || 'Unknown error'}`);
       }
@@ -335,9 +339,18 @@
 
         const data = await postJSON(BACKEND_URL + "/api/coach_plan", { user_id: uid, params, notes });
 
-        // Форматирование для читаемости (замена **Bold** на <strong>)
+        // 🌟 ЛОГИКА ФОРМАТИРОВАНИЯ ДЛЯ КРАСОТЫ 🌟
         let formattedPlan = data.plan
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            // 1. Заменяем \n (который может прийти из rule-based) на настоящие переносы
+            .replace(/\\n/g, '\n')
+            // 2. Универсальная замена: ищем **Bold** (GPT) ИЛИ "Станция X — Название" (Rule) ИЛИ "Заметки тренеру:"
+            .replace(/(\*\*([^*]+)\*\*)|(Станция\s+[A-ZА-Я]\s*—\s*[^:]+)|(Заметки тренеру:)/g, (match, gptBold, gptText, station, notes) => {
+                // Если это GPT-жирный текст, возвращаем <strong> без **
+                if (gptBold) return `<strong>${gptText.trim()}</strong>`;
+                // Если это Rule-based Станция или Заметки, возвращаем <strong>
+                if (station || notes) return `<strong>${match.trim()}</strong>`;
+                return match; // Иначе возвращаем как есть
+            });
 
         resultPre.innerHTML = formattedPlan;
         engineSpan.textContent = data.engine === "gpt" ? "🧠 AI (GPT)" : "⚙️ Rule-based";
@@ -345,7 +358,7 @@
         saveBtn.disabled = false;
         tg.HapticFeedback?.notificationOccurred("success");
       } catch (e) {
-        resultPre.textContent = `❌ Ошибка генерации: Failed to fetch (или API error): ${e.message || e}`;
+        resultPre.textContent = `❌ Ошибка генерации: Не удалось подключиться или API-ошибка: ${e.message || e}`;
         engineSpan.textContent = "";
         resultCard.classList.remove("hidden");
         tg.HapticFeedback?.notificationOccurred("error");
@@ -356,7 +369,7 @@
 
     // --- СОХРАНЕНИЕ ШАБЛОНА ---
     saveBtn?.addEventListener("click", async () => {
-      // Логика сохранения
+      // Логика сохранения (оставлена как заглушка)
     });
 
     // --- ЗАГРУЗКА ИЗНАЧАЛЬНОГО ЭКРАНА ---

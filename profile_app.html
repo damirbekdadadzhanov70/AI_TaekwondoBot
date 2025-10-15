@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>KukkiDo • Мини‑приложение</title>
+  <title>KukkiDo • Мини-приложение</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     :root { --bg:#0f1115; --card:#161a22; --text:#e6e6e6; --muted:#9aa4b2; --acc:#39c0ba; }
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", "Noto Sans", Arial; background: var(--bg); color: var(--text); }
+    body { margin: 0; font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,"Helvetica Neue","Noto Sans",Arial; background: var(--bg); color: var(--text); }
     .wrap { max-width: 860px; margin: 0 auto; padding: 16px; }
     h1 { margin: 0 0 12px; font-weight: 700; font-size: 20px; }
     p { color: var(--muted); margin: 0 0 16px; }
@@ -22,10 +22,8 @@
     input[type="number"], select, input[type="text"], textarea {
       width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #2a3242; background: #0d1118; color: var(--text);
     }
+    select[multiple] { min-height: 160px; }
     textarea { min-height: 90px; }
-    .checks { display:flex; gap:8px; flex-wrap:wrap; }
-    .chip { border:1px solid #2a3242; padding:8px 10px; border-radius:999px; font-size:13px; cursor:pointer; user-select:none; }
-    .chip.active { border-color: var(--acc); color: var(--acc); }
     .hidden { display:none; }
     .muted { font-size: 12px; color:#97a3b4; }
     pre { white-space: pre-wrap; background:#0b0e13; border:1px solid #202636; padding:12px; border-radius: 12px; }
@@ -35,8 +33,9 @@
 <body>
   <div class="wrap">
     <h1>KukkiDo</h1>
-    <p>Весь функционал — внутри мини‑приложения. Сообщений в чат не будет.</p>
+    <p id="subtitle">Выберите роль и начните — планы и дневники делаем прямо здесь, внутри мини-приложения.</p>
 
+    <!-- Экран выбора роли -->
     <div id="screen-role" class="grid">
       <div class="card">
         <h3>Тренер</h3>
@@ -50,6 +49,7 @@
       </div>
     </div>
 
+    <!-- Экран тренера -->
     <div id="screen-coach" class="hidden">
       <div class="card">
         <h3>Параметры группы</h3>
@@ -65,10 +65,11 @@
             </select>
           </div>
           <div>
-            <label>Размер группы</label>
+            <label>Количество детей</label>
             <input type="number" id="group_size" value="10" min="2" max="30"/>
           </div>
         </div>
+
         <div class="row">
           <div>
             <label>Цель</label>
@@ -86,6 +87,7 @@
             <input type="number" id="duration" value="45" min="20" max="120"/>
           </div>
         </div>
+
         <div class="row">
           <div>
             <label>Локация</label>
@@ -96,21 +98,26 @@
             </select>
           </div>
           <div>
-            <label>Инвентарь</label>
-            <div class="checks" id="inv">
-              <span class="chip" data-k="cones">Конусы</span>
-              <span class="chip" data-k="ladder">Лестница</span>
-              <span class="chip" data-k="rope">Скакалка</span>
-              <span class="chip" data-k="bands">Резинки</span>
-              <span class="chip" data-k="ball">Мячи</span>
-            </div>
-            <div class="muted" style="margin-top:6px;">Отметьте доступный инвентарь — это усилит персонализацию.</div>
+            <label>Инвентарь (можно выбрать несколько)</label>
+            <select id="inventory" multiple>
+              <option value="pads">Лапы</option>
+              <option value="rope">Скакалка</option>
+              <option value="bands">Жгут</option>
+              <option value="cones">Конусы</option>
+              <option value="makiwara">Макевара</option>
+              <option value="ball">Мячи</option>
+              <option value="ladder">Лестница</option>
+              <option value="hurdles">Барьеры</option>
+            </select>
+            <div class="muted" style="margin-top:6px;">Отметьте доступный инвентарь — влияeт на персонализацию плана.</div>
           </div>
         </div>
+
         <div style="margin-top:12px">
           <label>Заметки (опционально)</label>
           <textarea id="notes" placeholder="Например: у двоих чувствительное колено — избегать прыжков."></textarea>
         </div>
+
         <div class="row" style="margin-top:12px">
           <button class="btn" id="gen">Сгенерировать план</button>
           <button class="btn outline" id="save" disabled>Сохранить как шаблон</button>
@@ -125,24 +132,26 @@
   </div>
 
   <script>
-    const BACKEND_URL = window.BACKEND_URL || "http://localhost:8001";
+    // Поддержка backend из параметра URL (бот его добавляет), иначе локалхост:
+    const BACKEND_URL =
+      new URLSearchParams(location.search).get('backend') ||
+      (window.BACKEND_URL || "http://localhost:8001");
 
     const tg = window.Telegram?.WebApp;
     tg?.expand();
 
     function $(id){ return document.getElementById(id); }
+
+    const subtitle = $("subtitle");
     const scrRole = $("screen-role"), scrCoach = $("screen-coach");
     const pickCoach = $("pick-coach");
     const genBtn = $("gen"), saveBtn = $("save");
     const resultCard = $("result-card"), resultPre = $("result"), engineSpan = $("engine");
 
-    document.querySelectorAll(".chip").forEach(el => {
-      el.addEventListener("click", () => el.classList.toggle("active"));
-    });
-
     pickCoach?.addEventListener("click", () => {
       scrRole.classList.add("hidden");
       scrCoach.classList.remove("hidden");
+      subtitle.textContent = "Конструктор тренировки: задайте параметры группы и получите готовый план.";
       tg?.HapticFeedback?.impactOccurred("soft");
     });
 
@@ -156,10 +165,16 @@
       return await resp.json();
     }
 
+    function getInventoryList(){
+      const sel = $("inventory");
+      return Array.from(sel?.selectedOptions || []).map(o => o.value);
+    }
+
     genBtn?.addEventListener("click", async () => {
       try {
         genBtn.disabled = true; saveBtn.disabled = true;
-        const inv = Array.from(document.querySelectorAll(".chip.active")).map(el => el.dataset.k);
+
+        const inv = getInventoryList();
         const params = {
           age_band: $("age_band").value,
           group_size: Number($("group_size").value || 10),
@@ -171,9 +186,10 @@
         };
         const notes = $("notes").value || "";
         const uid = tg?.initDataUnsafe?.user?.id || 0;
+
         const data = await postJSON(BACKEND_URL + "/api/coach_plan", { user_id: uid, params, notes });
         resultPre.textContent = data.plan;
-        engineSpan.textContent = data.engine === "gpt" ? "🧠 GPT" : "⚙️ Rule‑based";
+        engineSpan.textContent = data.engine === "gpt" ? "🧠 GPT" : "⚙️ Rule-based";
         resultCard.classList.remove("hidden");
         saveBtn.disabled = false;
         tg?.HapticFeedback?.notificationOccurred("success");
@@ -188,7 +204,8 @@
       try {
         const name = prompt("Название шаблона:");
         if (!name) return;
-        const inv = Array.from(document.querySelectorAll(".chip.active")).map(el => el.dataset.k);
+
+        const inv = getInventoryList();
         const params = {
           age_band: $("age_band").value,
           group_size: Number($("group_size").value || 10),
@@ -200,7 +217,8 @@
         };
         const uid = tg?.initDataUnsafe?.user?.id || 0;
         const plan = $("result").textContent || "";
-        const resp = await postJSON(BACKEND_URL + "/api/templates/save", { user_id: uid, name, plan, params });
+
+        await postJSON(BACKEND_URL + "/api/templates/save", { user_id: uid, name, plan, params });
         alert("Шаблон сохранён ✅");
       } catch (e) {
         alert("Не удалось сохранить шаблон: " + e);

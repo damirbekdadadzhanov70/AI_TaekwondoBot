@@ -254,14 +254,17 @@
     const BACKEND_URL = BACKEND_URL_PARAM || "http://127.0.0.1:8000";
 
     const $ = (id) => document.getElementById(id);
-    const postJSON = async (url, data) => {
+
+    const postJSON = async (url, data, headers = {}) => {
       const response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify(data)
       });
       if (!response.ok) {
         const errorText = await response.text();
+        // Используем нативный TWA-метод для показа ошибки
+        tg.showAlert(`Ошибка API: HTTP ${response.status}\n${errorText || 'Unknown error'}`);
         throw new Error(`HTTP ${response.status}: ${errorText || 'Unknown error'}`);
       }
       return response.json();
@@ -289,7 +292,7 @@
             switchScreen(screens.coach);
         } else if (role === 'athlete') {
              tg.HapticFeedback?.notificationOccurred('error');
-             alert("Раздел 'Спортсмен' в разработке.");
+             tg.showAlert("Раздел 'Спортсмен' в разработке.");
         }
     }
 
@@ -335,21 +338,24 @@
           inventory_list: inv
         };
         const notes = $('notes').value || "";
-        const uid = tg?.initDataUnsafe?.user?.id || 0;
 
-        const data = await postJSON(BACKEND_URL + "/api/coach_plan", { user_id: uid, params, notes });
+        // 🌟 ИЗМЕНЕНИЕ: Отправляем init_data вместо user_id
+        const init_data = tg.initData;
+        if (!init_data) {
+            tg.showAlert("Ошибка: Telegram initData не доступен. Перезапустите Mini App.");
+            return;
+        }
+
+        const data = await postJSON(BACKEND_URL + "/api/coach_plan", { init_data, params, notes });
 
         // 🌟 ЛОГИКА ФОРМАТИРОВАНИЯ ДЛЯ КРАСОТЫ 🌟
         let formattedPlan = data.plan
-            // 1. Заменяем \n (который может прийти из rule-based) на настоящие переносы
-            .replace(/\\n/g, '\n')
-            // 2. Универсальная замена: ищем **Bold** (GPT) ИЛИ "Станция X — Название" (Rule) ИЛИ "Заметки тренеру:"
+            .replace(/\\n/g, '\n') // Заменяем \n на настоящие переносы
             .replace(/(\*\*([^*]+)\*\*)|(Станция\s+[A-ZА-Я]\s*—\s*[^:]+)|(Заметки тренеру:)/g, (match, gptBold, gptText, station, notes) => {
-                // Если это GPT-жирный текст, возвращаем <strong> без **
+                // Обработка жирного текста (GPT) или заголовков станций (Rule)
                 if (gptBold) return `<strong>${gptText.trim()}</strong>`;
-                // Если это Rule-based Станция или Заметки, возвращаем <strong>
                 if (station || notes) return `<strong>${match.trim()}</strong>`;
-                return match; // Иначе возвращаем как есть
+                return match;
             });
 
         resultPre.innerHTML = formattedPlan;
@@ -358,7 +364,8 @@
         saveBtn.disabled = false;
         tg.HapticFeedback?.notificationOccurred("success");
       } catch (e) {
-        resultPre.textContent = `❌ Ошибка генерации: Не удалось подключиться или API-ошибка: ${e.message || e}`;
+        // Ошибки уже обработаны в postJSON через tg.showAlert
+        resultPre.textContent = `❌ Ошибка генерации. Проверьте логи сервера.`;
         engineSpan.textContent = "";
         resultCard.classList.remove("hidden");
         tg.HapticFeedback?.notificationOccurred("error");
@@ -369,7 +376,38 @@
 
     // --- СОХРАНЕНИЕ ШАБЛОНА ---
     saveBtn?.addEventListener("click", async () => {
-      // Логика сохранения (оставлена как заглушка)
+      const plan = $('result').textContent;
+      if (!plan || plan.startsWith("❌")) {
+          tg.showAlert("Сначала сгенерируйте действительный план.");
+          return;
+      }
+
+      const name = prompt("Введите название для шаблона:");
+      if (!name) return;
+
+      saveBtn.disabled = true;
+
+      try {
+        const inv = getInventoryList();
+        const params = {
+          age_band: $('age_band').value,
+          group_size: Number($('group_size').value || 10),
+          goal: $('goal').value,
+          duration: Number($('duration').value || 60),
+          location: $('location').value,
+          inventory: inv.length > 0,
+          inventory_list: inv
+        };
+
+        const init_data = tg.initData;
+
+        await postJSON(BACKEND_URL + "/api/templates/save", { init_data, name, plan, params });
+        tg.showAlert(`Шаблон '${name}' успешно сохранен!`);
+      } catch (e) {
+        // Ошибки уже обработаны в postJSON
+      } finally {
+        saveBtn.disabled = false;
+      }
     });
 
     // --- ЗАГРУЗКА ИЗНАЧАЛЬНОГО ЭКРАНА ---

@@ -2,228 +2,390 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>KukkiDo • Мини-приложение</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
-    :root { --bg:#0f1115; --card:#161a22; --text:#e6e6e6; --muted:#9aa4b2; --acc:#39c0ba; }
-    * { box-sizing: border-box; }
-    body { margin: 0; font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,"Helvetica Neue","Noto Sans",Arial; background: var(--bg); color: var(--text); }
-    .wrap { max-width: 860px; margin: 0 auto; padding: 16px; }
-    h1 { margin: 0 0 12px; font-weight: 700; font-size: 20px; }
-    p { color: var(--muted); margin: 0 0 16px; }
-    .grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
-    @media(min-width:800px){ .grid{ grid-template-columns: repeat(2,1fr);} }
-    .card { background: var(--card); border-radius: 16px; padding: 14px; border: 1px solid #222735; }
-    .btn { appearance: none; border: 0; background: var(--acc); color: #0a0d10; font-weight: 700; padding: 12px 14px; border-radius: 12px; cursor: pointer; width: 100%; }
-    .btn.outline { background: transparent; color: var(--text); border: 1px solid #2a3242; }
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    label { display:block; font-size: 13px; margin-bottom:6px; color:#c5cedb; }
-    input[type="number"], select, input[type="text"], textarea {
-      width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #2a3242; background: #0d1118; color: var(--text);
+    /* Переменные для TWA-стиля */
+    :root {
+      /* Используем переменные Telegram для адаптации к темам */
+      --bg: var(--tg-theme-bg-color, #0f1115);
+      --card: var(--tg-theme-secondary-bg-color, #161a22);
+      --text: var(--tg-theme-text-color, #e6e6e6);
+      --muted: var(--tg-theme-hint-color, #9aa4b2);
+      --acc: var(--tg-theme-button-color, #39c0ba);
+      --acc-text: var(--tg-theme-button-text-color, #fff);
+      --danger: #ff5252;
     }
-    select[multiple] { min-height: 160px; }
-    textarea { min-height: 90px; }
-    .hidden { display:none; }
-    .muted { font-size: 12px; color:#97a3b4; }
-    pre { white-space: pre-wrap; background:#0b0e13; border:1px solid #202636; padding:12px; border-radius: 12px; }
-    .right { text-align:right; }
+
+    /* Базовые стили */
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", "Noto Sans", Arial;
+      background: var(--bg);
+      color: var(--text);
+      transition: background 0.3s, color 0.3s;
+    }
+    .wrap { max-width: 860px; margin: 0 auto; padding: 16px; }
+    h1 { margin: 0 0 12px; font-weight: 800; font-size: 24px; }
+    p { color: var(--muted); margin: 0 0 16px; font-size: 14px; }
+
+    /* Стили для карточек */
+    .card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Элементы формы */
+    label {
+      display: block;
+      color: var(--text);
+      font-weight: 600;
+      margin-bottom: 4px;
+      font-size: 14px;
+    }
+    .input-group { margin-bottom: 12px; }
+    input[type="number"], select, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--muted);
+      border-radius: 12px;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 16px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--acc);
+    }
+    textarea { min-height: 80px; resize: vertical; }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 600px) {
+      .row { grid-template-columns: 1fr; }
+    }
+
+    /* Стили кнопок */
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      border-radius: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+      transition: opacity 0.2s, background 0.2s;
+      border: none;
+      font-size: 16px;
+    }
+    .btn.primary {
+      background: var(--acc);
+      color: var(--acc-text);
+      margin-bottom: 8px;
+    }
+    .btn.secondary {
+      background: var(--card);
+      color: var(--text);
+      border: 1px solid var(--muted);
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Выбор роли и инвентаря (сохранены из предыдущего ответа) */
+    .role-card { text-align: center; padding: 24px 16px; cursor: pointer; border: 2px solid transparent; transition: border-color 0.2s; }
+    .role-card.disabled { opacity: 0.5; cursor: not-allowed; }
+    .role-icon { font-size: 32px; margin-bottom: 8px; }
+    .role-title { font-weight: 700; font-size: 18px; margin: 0; }
+    .role-desc { font-size: 12px; margin-top: 4px; color: var(--muted); }
+    .inventory-selector { display: flex; flex-wrap: wrap; gap: 8px; }
+    .inventory-item {
+      padding: 8px 12px; border-radius: 8px; background: var(--bg); border: 1px solid var(--muted);
+      cursor: pointer; font-size: 14px; transition: background 0.2s, border-color 0.2s; display: flex; align-items: center; gap: 6px;
+    }
+    .inventory-item.selected { background: var(--acc); color: var(--acc-text); border-color: var(--acc); }
+
+    /* Стиль результата */
+    .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .engine-tag { font-size: 12px; padding: 4px 8px; border-radius: 8px; background: var(--muted); color: var(--card); }
+    .result-plan {
+      white-space: pre-wrap; word-break: break-word; font-family: inherit; padding: 12px; border-radius: 12px;
+      background: var(--bg); border: 1px solid var(--card); line-height: 1.6; font-size: 14px;
+    }
+    .result-plan strong {
+      display: block; margin-top: 10px; margin-bottom: 5px; font-size: 16px; color: var(--acc);
+      border-bottom: 1px dashed var(--muted); padding-bottom: 3px;
+    }
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>KukkiDo</h1>
-    <p id="subtitle">Выберите роль и начните — планы и дневники делаем прямо здесь, внутри мини-приложения.</p>
 
-    <!-- Экран выбора роли -->
-    <div id="screen-role" class="grid">
-      <div class="card">
-        <h3>Тренер</h3>
-        <p class="muted">Планы для групп, шаблоны, заметки и ротация упражнений.</p>
-        <button class="btn" id="pick-coach">Продолжить как тренер</button>
-      </div>
-      <div class="card">
-        <h3>Спортсмен</h3>
-        <p class="muted">Дневник и персональная подготовка — скоро.</p>
-        <button class="btn outline" id="pick-athlete" disabled>Скоро</button>
+  <div class="wrap">
+
+    <div id="screen-role" class="screen">
+      <h1 id="welcome-message">🥋 Привет, Чемпион!</h1>
+      <p>Выберите вашу роль для доступа к функционалу KukkiDo:</p>
+      <div class="grid">
+        <div id="role-coach" class="card role-card" onclick="selectRole('coach')">
+          <div class="role-icon">🧑‍💻</div>
+          <div class="role-title">Тренер</div>
+          <div class="role-desc">Создание планов тренировок и шаблонов</div>
+        </div>
+        <div id="role-athlete" class="card role-card disabled" onclick="selectRole('athlete')">
+          <div class="role-icon">🏆</div>
+          <div class="role-title">Спортсмен</div>
+          <div class="role-desc">Дневник тренировок, цели и прогресс (скоро)</div>
+        </div>
       </div>
     </div>
 
-    <!-- Экран тренера -->
-    <div id="screen-coach" class="hidden">
-      <div class="card">
-        <h3>Параметры группы</h3>
-        <div class="row">
-          <div>
-            <label>Возрастная группа</label>
-            <select id="age_band">
-              <option value="U9">U9</option>
-              <option value="U11">U11</option>
-              <option value="U13" selected>U13</option>
-              <option value="U17">U17</option>
-              <option value="Adults">Взрослые</option>
-            </select>
-          </div>
-          <div>
-            <label>Количество детей</label>
-            <input type="number" id="group_size" value="10" min="2" max="30"/>
-          </div>
-        </div>
+    <div id="screen-coach" class="screen hidden">
+      <h1>Конструктор развития качеств</h1>
+      <p>Выберите качества и параметры для генерации плана по методике ТФК.</p>
 
-        <div class="row">
-          <div>
-            <label>Цель</label>
+      <form id="plan-form">
+        <div class="card">
+          <div class="row">
+            <div class="input-group">
+              <label for="age_band">Возрастная группа</label>
+              <select id="age_band">
+                <option value="children">Дети (4-8 лет)</option>
+                <option value="juniors" selected>Младшие (9-13 лет)</option>
+                <option value="seniors">Старшие/Взрослые (14+ лет)</option>
+              </select>
+            </div>
+
+            <div class="input-group">
+              <label for="group_size">Кол-во участников</label>
+              <input type="number" id="group_size" min="2" max="50" value="10" placeholder="5-30">
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label for="goal">Основное развиваемое качество (по ТФК)</label>
             <select id="goal">
-              <option>Скорость</option>
-              <option>Сила</option>
-              <option>Ловкость</option>
-              <option>Гибкость</option>
-              <option>Выносливость</option>
-              <option selected>Общая</option>
+              <option value="strength">💪 Сила</option>
+              <option value="speed" selected>⚡ Скорость</option>
+              <option value="agility">🤸 Ловкость</option>
+              <option value="quickness">🏃 Быстрота</option>
+              <option value="endurance">🔥 Выносливость</option>
+              <option value="flexibility">🧘 Гибкость/Растяжка</option>
+              <option value="speed_agility">⚡ Скорость + 🤸 Ловкость</option>
+              <option value="strength_endurance">💪 Сила + 🔥 Выносливость</option>
+              <option value="strength_speed">💥 Взрывная сила + ⚡ Скорость</option>
             </select>
           </div>
-          <div>
-            <label>Длительность (мин)</label>
-            <input type="number" id="duration" value="45" min="20" max="120"/>
+
+          <div class="row">
+            <div class="input-group">
+              <label for="duration">Длительность (мин)</label>
+              <input type="number" id="duration" min="30" max="120" value="60" placeholder="45-90">
+            </div>
+
+            <div class="input-group">
+              <label for="location">Место проведения</label>
+              <select id="location">
+                <option value="dojang" selected>🏟️ Зал (Доянг)</option>
+                <option value="home">🏠 Дом</option>
+                <option value="street">🌳 Улица/Парк</option>
+              </select>
+            </div>
           </div>
         </div>
 
-        <div class="row">
-          <div>
-            <label>Локация</label>
-            <select id="location">
-              <option selected>Зал</option>
-              <option>Дом</option>
-              <option>Улица</option>
-            </select>
-          </div>
-          <div>
-            <label>Инвентарь (можно выбрать несколько)</label>
-            <select id="inventory" multiple>
-              <option value="pads">Лапы</option>
-              <option value="rope">Скакалка</option>
-              <option value="bands">Жгут</option>
-              <option value="cones">Конусы</option>
-              <option value="makiwara">Макевара</option>
-              <option value="ball">Мячи</option>
-              <option value="ladder">Лестница</option>
-              <option value="hurdles">Барьеры</option>
-            </select>
-            <div class="muted" style="margin-top:6px;">Отметьте доступный инвентарь — влияeт на персонализацию плана.</div>
+        <div class="card">
+          <label>Наличие инвентаря (выберите все доступное)</label>
+          <div id="inventory-list" class="inventory-selector">
+            <div class="inventory-item" data-inv="makiwara">🎯 Лапы / Макивара</div>
+            <div class="inventory-item" data-inv="skipping_rope">➰ Скакалка</div>
+            <div class="inventory-item" data-inv="resistance_band">🔗 Жгут</div>
+            <div class="inventory-item" data-inv="cones">🔺 Конусы / Фишки</div>
+            <div class="inventory-item" data-inv="tennis_balls">🎾 Мячи (теннис)</div>
+            <div class="inventory-item" data-inv="agility_ladder">🪜 Лестница</div>
+            <div class="inventory-item" data-inv="hurdles">🚧 Барьеры</div>
+            <div class="inventory-item" data-inv="weighted_vests">🏋️ Жилет (утяж.)</div>
           </div>
         </div>
 
-        <div style="margin-top:12px">
-          <label>Заметки (опционально)</label>
-          <textarea id="notes" placeholder="Например: у двоих чувствительное колено — избегать прыжков."></textarea>
+        <div class="card">
+          <label for="notes">Дополнительные комментарии для AI</label>
+          <textarea id="notes" placeholder="Например: 'Нужна активная разминка', 'Фокус на работу ног', 'Есть травма колена у одного ребенка - исключить прыжки'"></textarea>
         </div>
 
-        <div class="row" style="margin-top:12px">
-          <button class="btn" id="gen">Сгенерировать план</button>
-          <button class="btn outline" id="save" disabled>Сохранить как шаблон</button>
-        </div>
-      </div>
+        <button id="generate-btn" type="submit" class="btn primary">Сгенерировать план (AI)</button>
+        <button id="templates-btn" type="button" class="btn secondary">Мои шаблоны</button>
+      </form>
 
-      <div class="card hidden" id="result-card">
-        <div class="right muted" id="engine"></div>
-        <pre id="result"></pre>
+      <div id="result-card" class="card hidden" style="margin-top: 20px;">
+        <div class="result-header">
+          <h2 style="font-size: 18px; margin: 0;">📋 Ваш план тренировки</h2>
+          <span id="engine-span" class="engine-tag"></span>
+        </div>
+        <pre id="result" class="result-plan">Здесь появится сгенерированный план.</pre>
+        <button id="save-btn" type="button" class="btn secondary" style="margin-top: 10px;">💾 Сохранить как шаблон</button>
       </div>
     </div>
   </div>
 
   <script>
-    // Поддержка backend из параметра URL (бот его добавляет), иначе локалхост:
-    const BACKEND_URL =
-      new URLSearchParams(location.search).get('backend') ||
-      (window.BACKEND_URL || "http://localhost:8001");
+    const tg = window.Telegram.WebApp;
+    const BACKEND_URL_PARAM = new URLSearchParams(window.location.search).get('backend');
+    const BACKEND_URL = BACKEND_URL_PARAM || "http://127.0.0.1:8000";
 
-    const tg = window.Telegram?.WebApp;
-    tg?.expand();
-
-    function $(id){ return document.getElementById(id); }
-
-    const subtitle = $("subtitle");
-    const scrRole = $("screen-role"), scrCoach = $("screen-coach");
-    const pickCoach = $("pick-coach");
-    const genBtn = $("gen"), saveBtn = $("save");
-    const resultCard = $("result-card"), resultPre = $("result"), engineSpan = $("engine");
-
-    pickCoach?.addEventListener("click", () => {
-      scrRole.classList.add("hidden");
-      scrCoach.classList.remove("hidden");
-      subtitle.textContent = "Конструктор тренировки: задайте параметры группы и получите готовый план.";
-      tg?.HapticFeedback?.impactOccurred("soft");
-    });
-
-    async function postJSON(url, data){
-      const resp = await fetch(url, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
+    const $ = (id) => document.getElementById(id);
+    const postJSON = async (url, data) => {
+      // (Функция для POST запроса)
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       });
-      if (!resp.ok) throw new Error(await resp.text());
-      return await resp.json();
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+    };
+
+    // --- ИНИЦИАЛИЗАЦИЯ И УПРАВЛЕНИЕ ЭКРАНАМИ ---
+    tg.ready();
+    tg.expand();
+    tg.MainButton.hide();
+
+    const screens = { role: $('screen-role'), coach: $('screen-coach') };
+
+    if (tg.initDataUnsafe?.user?.first_name) {
+        $('welcome-message').textContent = `🥋 Привет, ${tg.initDataUnsafe.user.first_name}!`;
     }
 
-    function getInventoryList(){
-      const sel = $("inventory");
-      return Array.from(sel?.selectedOptions || []).map(o => o.value);
+    function switchScreen(activeScreen) {
+        Object.values(screens).forEach(screen => screen.classList.add('hidden'));
+        activeScreen.classList.remove('hidden');
     }
 
-    genBtn?.addEventListener("click", async () => {
+    function selectRole(role) {
+        if (role === 'coach') {
+            tg.HapticFeedback?.notificationOccurred('success');
+            switchScreen(screens.coach);
+        } else if (role === 'athlete') {
+             tg.HapticFeedback?.notificationOccurred('error');
+             alert("Раздел 'Спортсмен' в разработке. Выберите 'Тренер'.");
+        }
+    }
+
+    // --- ЛОГИКА ИНВЕНТАРЯ (ПЛИТКИ) ---
+    const inventoryItems = document.querySelectorAll('.inventory-item');
+    inventoryItems.forEach(item => {
+        item.addEventListener('click', () => {
+            item.classList.toggle('selected');
+            tg.HapticFeedback?.impactOccurred('light');
+        });
+    });
+
+    function getInventoryList() {
+        return Array.from(document.querySelectorAll('.inventory-item.selected'))
+                    .map(item => item.getAttribute('data-inv'));
+    }
+
+    // --- ГЕНЕРАЦИЯ ПЛАНА ---
+    const genBtn = $('generate-btn');
+    const saveBtn = $('save-btn');
+    const resultCard = $('result-card');
+    const resultPre = $('result');
+    const engineSpan = $('engine-span');
+    const form = $('plan-form');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      genBtn.disabled = true;
+      saveBtn.disabled = true;
+      resultCard.classList.add('hidden');
+      resultPre.textContent = "⚙️ Генерируем план...";
+      tg.HapticFeedback?.impactOccurred('medium');
+
       try {
-        genBtn.disabled = true; saveBtn.disabled = true;
-
         const inv = getInventoryList();
         const params = {
-          age_band: $("age_band").value,
-          group_size: Number($("group_size").value || 10),
-          goal: $("goal").value,
-          duration: Number($("duration").value || 45),
-          location: $("location").value,
+          age_band: $('age_band').value,
+          group_size: Number($('group_size').value || 10),
+          goal: $('goal').value,
+          duration: Number($('duration').value || 60),
+          location: $('location').value,
           inventory: inv.length > 0,
           inventory_list: inv
         };
-        const notes = $("notes").value || "";
+        const notes = $('notes').value || "";
         const uid = tg?.initDataUnsafe?.user?.id || 0;
 
         const data = await postJSON(BACKEND_URL + "/api/coach_plan", { user_id: uid, params, notes });
-        resultPre.textContent = data.plan;
-        engineSpan.textContent = data.engine === "gpt" ? "🧠 GPT" : "⚙️ Rule-based";
+
+        // Форматирование для читаемости
+        let formattedPlan = data.plan
+            .replace(/(\*\*(.*?)\*\*)/g, '<strong>$2</strong>')
+            .replace(/—\s*([^:]+):/g, (match, p1) => `— ${p1}:`);
+
+        resultPre.innerHTML = formattedPlan;
+        engineSpan.textContent = data.engine === "gpt" ? "🧠 AI (GPT)" : "⚙️ Правила";
         resultCard.classList.remove("hidden");
         saveBtn.disabled = false;
-        tg?.HapticFeedback?.notificationOccurred("success");
+        tg.HapticFeedback?.notificationOccurred("success");
       } catch (e) {
-        alert("Ошибка генерации: " + e);
+        resultPre.textContent = `❌ Ошибка генерации: ${e.message || e}`;
+        engineSpan.textContent = "";
+        resultCard.classList.remove("hidden");
+        tg.HapticFeedback?.notificationOccurred("error");
       } finally {
         genBtn.disabled = false;
       }
     });
 
+    // --- СОХРАНЕНИЕ ШАБЛОНА ---
     saveBtn?.addEventListener("click", async () => {
+      const plan = resultPre.textContent || "";
+      if (!plan || plan.includes("Ошибка")) {
+        alert("Сначала сгенерируйте корректный план.");
+        return;
+      }
+
       try {
-        const name = prompt("Название шаблона:");
+        const name = prompt("Название шаблона (для сохранения):");
         if (!name) return;
 
         const inv = getInventoryList();
         const params = {
-          age_band: $("age_band").value,
-          group_size: Number($("group_size").value || 10),
-          goal: $("goal").value,
-          duration: Number($("duration").value || 45),
-          location: $("location").value,
+          age_band: $('age_band').value,
+          group_size: Number($('group_size').value || 10),
+          goal: $('goal').value,
+          duration: Number($('duration').value || 60),
+          location: $('location').value,
           inventory: inv.length > 0,
           inventory_list: inv
         };
         const uid = tg?.initDataUnsafe?.user?.id || 0;
-        const plan = $("result").textContent || "";
 
         await postJSON(BACKEND_URL + "/api/templates/save", { user_id: uid, name, plan, params });
-        alert("Шаблон сохранён ✅");
+        tg.HapticFeedback?.notificationOccurred("success");
+        alert(`Шаблон "${name}" успешно сохранен!`);
+
       } catch (e) {
-        alert("Не удалось сохранить шаблон: " + e);
+        tg.HapticFeedback?.notificationOccurred("error");
+        alert("Ошибка сохранения: " + e);
       }
     });
+
+    // --- ЗАГРУЗКА ИЗНАЧАЛЬНОГО ЭКРАНА ---
+    switchScreen(screens.role);
   </script>
+
 </body>
 </html>

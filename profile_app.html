@@ -176,7 +176,6 @@
             <div class="input-group">
               <label for="age_band">Возрастная группа</label>
               <select id="age_band">
-                <!-- Обновленные возрастные группы -->
                 <option value="junior_youth">Младшие юноши (9-11)</option>
                 <option value="cadet" selected>Кадеты (12-14)</option>
                 <option value="junior">Юниоры (15-17)</option>
@@ -232,7 +231,6 @@
             <div class="inventory-item" data-inv="skipping_rope">➰ Скакалка</div>
             <div class="inventory-item" data-inv="resistance_band">🔗 Жгут</div>
             <div class="inventory-item" data-inv="cones">🔺 Конусы / Фишки</div>
-            <!-- Обновлено название инвентаря -->
             <div class="inventory-item" data-inv="tennis_balls">⚾ Мячи</div>
             <div class="inventory-item" data-inv="agility_ladder">🪜 Лестница</div>
             <div class="inventory-item" data-inv="hurdles">🚧 Барьеры</div>
@@ -260,7 +258,6 @@
         </div>
       </div>
 
-      <!-- Кнопка "Назад" - теперь всегда видима на этом экране -->
       <button id="back-to-role-btn" type="button" class="btn secondary" style="margin-top: 20px;">
         ← Назад
       </button>
@@ -287,7 +284,7 @@
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            // 🌟 ОТПРАВЛЯЕМ initData в специальном заголовке (как ожидается бэкендом)
+            // Отправляем initData в специальном заголовке (для совместимости с другими GET/POST)
             'X-TMA-Init-Data': init_data,
         },
         body: JSON.stringify(data)
@@ -370,31 +367,39 @@
 
       try {
         const inv = getInventoryList();
-        const params = {
+
+        // 🌟 ИСПРАВЛЕНИЕ ОШИБКИ 422: Формируем плоскую структуру с правильными типами данных.
+        const requestData = {
+          // 1. init_data должен быть в теле для Pydantic-модели бэкенда.
+          init_data: tg.initData,
+
           age_band: $('age_band').value,
+          // 2. Number() гарантирует, что это число, а || fallback предотвращает отправку null/NaN.
           group_size: Number($('group_size').value || 10),
           goal: $('goal').value,
           duration: Number($('duration').value || 60),
           location: $('location').value,
+          // 3. inv.length > 0 гарантирует булево значение (true/false).
           inventory: inv.length > 0,
           inventory_list: inv
         };
-        const notes = $('notes').value || "";
+        // Примечание: 'notes' не отправляется, так как он не ожидается Pydantic-моделью CoachPlanRequest.
+        // Если он нужен AI, необходимо обновить модель на бэкенде.
 
-        // Отправляем только параметры и заметки. init_data автоматически добавляется в postJSON.
-        const data = await postJSON(BACKEND_URL + "/api/coach_plan", { params, notes });
+        // Отправляем исправленную структуру
+        const data = await postJSON(BACKEND_URL + "/api/coach_plan", requestData);
 
         // 🌟 ЛОГИКА ФОРМАТИРОВАНИЯ ДЛЯ КРАСОТЫ 🌟
         let formattedPlan = data.plan
             // Заменяем \n на настоящие переносы, если они были экранированы в бэкенде
             .replace(/\\n/g, '\n')
-            // Ищем жирный текст (от GPT), или явные заголовки (Станция, Заметки тренеру)
+            // Ищем жирный текст (от GPT) или явные заголовки (Станция, Заметки тренеру)
             // и оборачиваем их в <strong> для стилизации CSS.
-            .replace(/(\*\*([^*]+)\*\*)|(Станция\s+[A-ZА-Я]\s*—\s*[^:]+)|(Заметки тренеру:)/g, (match, gptBold, gptText) => {
+            .replace(/(\*\*([^*]+)\*\*)|(Станция\s+[A-ZА-Я]\s*—\s*[^:]+)|(Заметки тренеру:)|(##\s*[^#]+)/g, (match, gptBold, gptText) => {
                 // Если сработал gptBold (текст в **), используем его содержимое
                 if (gptBold) return `<strong>${gptText.trim()}</strong>`;
-                // Иначе используем полный найденный match (Станция или Заметки)
-                return `<strong>${match.trim()}</strong>`;
+                // Иначе используем полный найденный match (Станция, Заметки или Заголовок MD)
+                return `<strong>${match.replace(/##\s*/, '').trim()}</strong>`;
             });
 
         resultPre.innerHTML = formattedPlan;
@@ -445,48 +450,38 @@
           return;
       }
 
-      tg.showPopup({
-        title: "💾 Сохранить шаблон",
-        message: "Введите название для плана-шаблона:",
-        text_input: {
-            placeholder: "Например: 'ОФП для кадетов'",
-            text: "" // Обязательно, чтобы показать поле ввода
-        },
-        buttons: [
-            { id: 'save', text: 'Сохранить', type: 'default' },
-            { id: 'cancel', text: 'Отмена', type: 'cancel' }
-        ]
-      }, async (btnId) => {
-          if (btnId !== 'save') return;
+      // Используем prompt() для получения названия
+      const name = prompt("Введите название для шаблона:");
+      if (!name) return;
 
-          // В TWA API нет прямого способа получить текст из text_input в showPopup.
-          // Приходится использовать prompt() или кастомный ввод.
-          // Вернемся к prompt() как в оригинальном коде, чтобы не усложнять.
-          const name = prompt("Введите название для шаблона:");
-          if (!name) return;
+      saveBtn.disabled = true;
 
-          saveBtn.disabled = true;
+      try {
+        const inv = getInventoryList();
+        // 🌟 Обновляем параметры для сохранения шаблона
+        const params = {
+          age_band: $('age_band').value,
+          group_size: Number($('group_size').value || 10),
+          goal: $('goal').value,
+          duration: Number($('duration').value || 60),
+          location: $('location').value,
+          inventory: inv.length > 0,
+          inventory_list: inv
+        };
 
-          try {
-            const inv = getInventoryList();
-            const params = {
-              age_band: $('age_band').value,
-              group_size: Number($('group_size').value || 10),
-              goal: $('goal').value,
-              duration: Number($('duration').value || 60),
-              location: $('location').value,
-              inventory: inv.length > 0,
-              inventory_list: inv
-            };
-
-            await postJSON(BACKEND_URL + "/api/templates/save", { name, plan, params });
-            tg.showAlert(`✅ Шаблон '${name}' успешно сохранен!`);
-          } catch (e) {
-            // Ошибки уже обработаны в postJSON
-          } finally {
-            saveBtn.disabled = false;
-          }
-      });
+        // Шаблон сохраняется через отдельный POST-запрос
+        await postJSON(BACKEND_URL + "/api/templates/save", {
+            init_data: tg.initData, // Добавляем init_data для аутентификации
+            name,
+            plan,
+            params
+        });
+        tg.showAlert(`✅ Шаблон '${name}' успешно сохранен!`);
+      } catch (e) {
+        // Ошибки уже обработаны в postJSON
+      } finally {
+        saveBtn.disabled = false;
+      }
     });
 
     // --- ЗАГРУЗКА ИЗНАЧАЛЬНОГО ЭКРАНА ---
